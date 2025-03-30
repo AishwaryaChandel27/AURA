@@ -143,7 +143,7 @@ Analyze text using TensorFlow for topic classification or sentiment analysis.
 }
 ```
 
-## Text Generation
+## OpenAI Features
 
 ### POST /api/generate
 
@@ -162,6 +162,65 @@ Generate text using the OpenAI API. Requires a valid OpenAI API key to be config
 {
   "success": true,
   "text": "Attention mechanisms in transformer models allow the model to focus on different parts of the input sequence when generating each part of the output. Unlike traditional sequence models that process data sequentially, transformers process the entire sequence at once, using attention to determine which elements are most relevant to each other..."
+}
+```
+
+### POST /api/analyze/sentiment
+
+Analyze sentiment using the OpenAI API. Provides a more nuanced sentiment analysis than the TensorFlow-based endpoint.
+
+**Request Body:**
+```json
+{
+  "text": "The recent advancements in AI have been remarkable, leading to significant improvements in efficiency and accuracy.",
+  "use_openai": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "rating": 5,
+  "confidence": 0.92
+}
+```
+
+### POST /api/generate/image
+
+Generate an image using DALL-E 3 via the OpenAI API.
+
+**Request Body:**
+```json
+{
+  "prompt": "A futuristic research laboratory with holographic displays and robots assisting scientists"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "https://oaidalleapiprodscus.blob.core.windows.net/private/..."
+}
+```
+
+### POST /api/analyze/image
+
+Analyze an image using OpenAI's multimodal capabilities.
+
+**Request Body:**
+```json
+{
+  "image": "base64_encoded_image_data_here"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "analysis": "The image shows a detailed microscopic view of cellular structures. The purple-stained cells appear to be neurons with visible dendrites extending outward. This type of neural imaging is commonly used in neuroscience research to study brain cell morphology and connections..."
 }
 ```
 
