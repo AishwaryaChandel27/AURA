@@ -140,3 +140,86 @@ def generate_text():
     except Exception as e:
         logger.error(f"Error generating text: {e}")
         return jsonify({"error": str(e)}), 500
+
+@api_bp.route('/analyze/sentiment', methods=['POST'])
+def analyze_sentiment():
+    """Analyze sentiment using OpenAI"""
+    try:
+        # Get request data
+        data = request.json
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({"error": "Text is required"}), 400
+        
+        # Determine if we should use TensorFlow or OpenAI
+        use_openai = data.get('use_openai', True)
+        
+        if use_openai:
+            # Analyze sentiment using OpenAI
+            logger.debug("Using OpenAI for sentiment analysis")
+            result = openai_service.analyze_sentiment(text)
+            return jsonify({
+                "success": True,
+                "rating": result.get("rating"),
+                "confidence": result.get("confidence")
+            })
+        else:
+            # Fallback to TensorFlow
+            logger.debug("Using TensorFlow for sentiment analysis")
+            result = tensorflow_service.analyze_sentiment(text)
+            return jsonify({
+                "success": True,
+                "sentiment": result.get("sentiment"),
+                "score": result.get("score")
+            })
+            
+    except Exception as e:
+        logger.error(f"Error analyzing sentiment: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@api_bp.route('/generate/image', methods=['POST'])
+def generate_image():
+    """Generate image using DALL-E"""
+    try:
+        # Get request data
+        data = request.json
+        prompt = data.get('prompt', '')
+        
+        if not prompt:
+            return jsonify({"error": "Prompt is required"}), 400
+        
+        # Generate image
+        result = openai_service.generate_image(prompt)
+        
+        return jsonify({
+            "success": True,
+            "url": result.get("url")
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating image: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@api_bp.route('/analyze/image', methods=['POST'])
+def analyze_image():
+    """Analyze image using OpenAI"""
+    try:
+        # Get request data
+        data = request.json
+        base64_image = data.get('image', '')
+        
+        if not base64_image:
+            return jsonify({"error": "Image data is required"}), 400
+        
+        # Analyze image
+        result = openai_service.analyze_image(base64_image)
+        
+        return jsonify({
+            "success": True,
+            "analysis": result
+        })
+        
+    except Exception as e:
+        logger.error(f"Error analyzing image: {e}")
+        return jsonify({"error": str(e)}), 500

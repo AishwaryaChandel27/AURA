@@ -333,3 +333,56 @@ class OpenAIService:
         except Exception as e:
             logger.error(f"Error designing experiment: {e}")
             raise
+            
+    def generate_image(self, text: str) -> Dict[str, str]:
+        """
+        Generate an image based on a text prompt using DALL-E
+        
+        Args:
+            text (str): The text prompt for image generation
+            
+        Returns:
+            dict: Generated image URL
+        """
+        if not self.client:
+            raise ValueError("OpenAI client not initialized. Please provide a valid API key.")
+            
+        try:
+            response = self.client.images.generate(
+                model="dall-e-3",
+                prompt=text,
+                n=1,
+                size="1024x1024",
+            )
+            
+            return {"url": response.data[0].url}
+                
+        except Exception as e:
+            logger.error(f"Error generating image: {e}")
+            raise
+            
+    def transcribe_audio(self, audio_file_path: str) -> str:
+        """
+        Transcribe audio file using Whisper
+        
+        Args:
+            audio_file_path (str): Path to the audio file
+            
+        Returns:
+            str: Transcribed text
+        """
+        if not self.client:
+            raise ValueError("OpenAI client not initialized. Please provide a valid API key.")
+            
+        try:
+            with open(audio_file_path, "rb") as audio_file:
+                response = self.client.audio.transcriptions.create(
+                    model="whisper-1", 
+                    file=audio_file
+                )
+                
+            return response.text
+                
+        except Exception as e:
+            logger.error(f"Error transcribing audio: {e}")
+            raise
