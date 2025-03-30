@@ -1,269 +1,304 @@
 """
-OpenAI service for AURA Research Assistant
+OpenAI Service for AURA Research Assistant
+Handles communication with OpenAI API for various NLP tasks
 """
 
 import os
 import json
 import logging
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 
+# Import the OpenAI SDK
 from openai import OpenAI
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# OpenAI configuration
-API_KEY = os.environ.get("OPENAI_API_KEY")
-if not API_KEY:
-    logger.warning("OpenAI API key not found in environment variables")
-
-# the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-# do not change this unless explicitly requested by the user
-DEFAULT_MODEL = "gpt-4o"
-
 # Initialize OpenAI client
-client = OpenAI(api_key=API_KEY)
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-def analyze_query(query_text: str) -> Dict[str, Any]:
-    """
-    Analyze a user query to determine its nature and how to respond
-    
-    Args:
-        query_text (str): The user's query text
-        
-    Returns:
-        dict: Analysis results
-    """
-    try:
-        # Create system prompt
-        system_prompt = """
-        You are an assistant that analyzes user queries to determine how to route them.
-        Specifically, you need to identify if a query is related to TensorFlow and should be
-        handled by a TensorFlow-specific agent.
-        
-        Return a JSON object with the following fields:
-        - query_type: The type of query (e.g., "research", "clarification", "tensorflow", "general")
-        - tensorflow_relevance: A brief explanation of why this is or isn't relevant to TensorFlow (if applicable)
-        - relevance_score: A score from 0 to 1 indicating how relevant this query is to TensorFlow
-        - agent_type: The agent that should handle this query ("tensorflow" or "general")
-        """
-        
-        # Call OpenAI API
-        response = client.chat.completions.create(
-            model=DEFAULT_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": query_text}
-            ],
-            response_format={"type": "json_object"}
-        )
-        
-        # Parse and return the result
-        result = json.loads(response.choices[0].message.content)
-        return result
-    except Exception as e:
-        logger.error(f"Error analyzing query: {e}")
-        # Return default values if there's an error
-        return {
-            "query_type": "general",
-            "tensorflow_relevance": "",
-            "relevance_score": 0,
-            "agent_type": "general"
-        }
-
-def summarize_paper(paper: Dict[str, Any]) -> Dict[str, Any]:
+def summarize_paper(title: str, abstract: str) -> Dict[str, Any]:
     """
     Generate a summary for a research paper
     
     Args:
-        paper (dict): Paper information including title, authors, and abstract
+        title (str): Paper title
+        abstract (str): Paper abstract
         
     Returns:
         dict: Summary and key findings
     """
+    logger.info(f"Summarizing paper: {title}")
+    
     try:
-        # Create system prompt
-        system_prompt = """
-        You are a research assistant that summarizes academic papers.
-        Given a paper's title, authors, and abstract, provide a concise summary and a list of key findings.
+        # Prepare the prompt for OpenAI
+        prompt = f"""
+        Paper Title: {title}
         
-        Return a JSON object with the following fields:
-        - summary: A concise summary of the paper (max 3 paragraphs)
-        - key_findings: A list of 3-5 key findings or contributions
+        Abstract: {abstract}
+        
+        Please provide a concise summary of this research paper and extract the key findings.
+        Format your response as JSON with the following structure:
+        {{
+            "summary": "A concise summary of the paper",
+            "key_findings": ["Key finding 1", "Key finding 2", "Key finding 3", "Key finding 4", "Key finding 5"]
+        }}
+        Ensure the summary is no longer than 150 words and extract 3-5 key findings as bullet points.
         """
         
-        # Format paper info for the prompt
-        paper_text = f"Title: {paper['title']}\n\n"
-        
-        if 'authors' in paper and paper['authors']:
-            if isinstance(paper['authors'], list):
-                paper_text += f"Authors: {', '.join(paper['authors'])}\n\n"
-            else:
-                paper_text += f"Authors: {paper['authors']}\n\n"
-        
-        if 'abstract' in paper and paper['abstract']:
-            paper_text += f"Abstract: {paper['abstract']}\n\n"
-        
-        # Call OpenAI API
+        # Call the OpenAI API
+        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+        # do not change this unless explicitly requested by the user
         response = client.chat.completions.create(
-            model=DEFAULT_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": paper_text}
-            ],
-            response_format={"type": "json_object"}
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+            max_tokens=600
         )
         
-        # Parse and return the result
-        result = json.loads(response.choices[0].message.content)
+        # Parse the response
+        content = response.choices[0].message.content
+        result = json.loads(content)
+        
+        # Ensure the expected structure
+        if "summary" not in result or "key_findings" not in result:
+            logger.warning("OpenAI response missing expected fields")
+            return {
+                "summary": f"Summary of {title}",
+                "key_findings": ["No key findings identified"]
+            }
+        
         return result
+    
     except Exception as e:
         logger.error(f"Error summarizing paper: {e}")
-        # Return minimal summary if there's an error
         return {
-            "summary": f"Error generating summary for '{paper.get('title', 'unknown paper')}'.",
-            "key_findings": []
+            "summary": f"Error generating summary for: {title}",
+            "key_findings": ["Error processing paper"]
         }
 
-def generate_hypothesis(research_question: str, paper_summaries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def generate_hypothesis(research_question: str, papers: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Generate a research hypothesis based on a research question and paper summaries
+    Generate a hypothesis based on a research question and paper data
     
     Args:
         research_question (str): The research question
-        paper_summaries (list): List of paper summaries
+        papers (list): List of paper data
         
     Returns:
-        dict: Generated hypothesis, reasoning, and confidence score
+        dict: Generated hypothesis
     """
+    logger.info(f"Generating hypothesis for question: {research_question}")
+    
     try:
-        # Create system prompt
-        system_prompt = """
-        You are a research assistant that generates research hypotheses.
-        Given a research question and a set of paper summaries, generate a hypothesis that could be tested with TensorFlow.
+        # Prepare paper summaries for the prompt
+        paper_info = []
+        for i, paper in enumerate(papers[:5]):  # Limit to 5 papers to stay within token limits
+            summary_text = ""
+            if "summary" in paper and paper["summary"]:
+                summary_text = paper["summary"].get("summary_text", "")
+            
+            paper_info.append(f"""
+            Paper {i+1}: {paper.get('title', 'Untitled')}
+            Abstract: {paper.get('abstract', 'No abstract available')}
+            Summary: {summary_text}
+            """)
         
-        Return a JSON object with the following fields:
-        - hypothesis_text: The generated hypothesis statement
-        - reasoning: Explanation of why this hypothesis is worth testing
-        - confidence_score: A score from 0 to 1 indicating your confidence in this hypothesis
-        - supporting_evidence: A map of paper titles to relevant quotes or findings that support this hypothesis
-        - tensorflow_approach: A brief description of how TensorFlow could be used to test this hypothesis
+        # Join paper information
+        papers_text = "\n".join(paper_info)
+        
+        # Prepare the prompt for OpenAI
+        prompt = f"""
+        Research Question: {research_question}
+        
+        Available Papers:
+        {papers_text}
+        
+        Based on the research question and the available papers, please generate a hypothesis. 
+        Include reasoning and a confidence score.
+        
+        Format your response as JSON with the following structure:
+        {{
+            "hypothesis_text": "The clear hypothesis statement",
+            "reasoning": "Reasoning behind this hypothesis based on the papers",
+            "confidence_score": 0.8,  # A number between 0 and 1
+            "supporting_evidence": {{
+                "paper1": "Relevant quote or finding from paper 1",
+                "paper2": "Relevant quote or finding from paper 2"
+            }}
+        }}
         """
         
-        # Format input for the prompt
-        input_text = f"Research Question: {research_question}\n\n"
-        input_text += "Paper Summaries:\n\n"
-        
-        for i, paper in enumerate(paper_summaries):
-            input_text += f"Paper {i+1}: {paper.get('title', 'Unknown Title')}\n"
-            if 'summary' in paper and paper['summary']:
-                # Handle different summary formats
-                if isinstance(paper['summary'], dict) and 'summary_text' in paper['summary']:
-                    input_text += f"Summary: {paper['summary']['summary_text']}\n"
-                elif isinstance(paper['summary'], dict) and 'text' in paper['summary']:
-                    input_text += f"Summary: {paper['summary']['text']}\n"
-                else:
-                    input_text += f"Summary: {paper['summary']}\n"
-            
-            # Add key findings if available
-            if 'key_findings' in paper.get('summary', {}) and paper['summary']['key_findings']:
-                input_text += "Key Findings:\n"
-                for finding in paper['summary']['key_findings']:
-                    input_text += f"- {finding}\n"
-            
-            input_text += "\n"
-        
-        # Call OpenAI API
+        # Call the OpenAI API
+        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+        # do not change this unless explicitly requested by the user
         response = client.chat.completions.create(
-            model=DEFAULT_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": input_text}
-            ],
-            response_format={"type": "json_object"}
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.4,
+            max_tokens=800
         )
         
-        # Parse and return the result
-        result = json.loads(response.choices[0].message.content)
+        # Parse the response
+        content = response.choices[0].message.content
+        result = json.loads(content)
+        
+        # Ensure the expected structure
+        if "hypothesis_text" not in result:
+            logger.warning("OpenAI response missing expected fields")
+            return {
+                "hypothesis_text": f"Hypothesis for: {research_question}",
+                "reasoning": "Insufficient data to generate reasoning",
+                "confidence_score": 0.3,
+                "supporting_evidence": {}
+            }
+        
         return result
+    
     except Exception as e:
         logger.error(f"Error generating hypothesis: {e}")
-        # Return a minimal response if there's an error
         return {
-            "hypothesis_text": f"Error generating hypothesis for '{research_question}'.",
-            "reasoning": "An error occurred during hypothesis generation.",
-            "confidence_score": 0.0,
-            "supporting_evidence": {},
-            "tensorflow_approach": "N/A"
+            "hypothesis_text": f"Error generating hypothesis for: {research_question}",
+            "reasoning": "An error occurred during hypothesis generation",
+            "confidence_score": 0.1,
+            "supporting_evidence": {}
         }
 
-def design_experiment(hypothesis: Dict[str, Any]) -> Dict[str, Any]:
+def design_experiment(hypothesis: str) -> Dict[str, Any]:
     """
-    Design an experiment to test a hypothesis using TensorFlow
+    Design an experiment to test a hypothesis
     
     Args:
-        hypothesis (dict): Hypothesis information
+        hypothesis (str): The hypothesis to test
         
     Returns:
-        dict: Experiment design
+        dict: Experiment design details
     """
+    logger.info(f"Designing experiment for hypothesis: {hypothesis}")
+    
     try:
-        # Create system prompt
-        system_prompt = """
-        You are a research assistant that designs experiments using TensorFlow.
-        Given a hypothesis, design an experiment that could test it.
+        # Prepare the prompt for OpenAI
+        prompt = f"""
+        Hypothesis: {hypothesis}
         
-        Return a JSON object with the following fields:
-        - title: A title for the experiment
-        - methodology: Description of the experimental methodology
-        - variables: JSON object with "independent" and "dependent" variables (each a list of strings)
-        - controls: Description of control measures
-        - expected_outcomes: Expected results if the hypothesis is correct
-        - limitations: Potential limitations or challenges
-        - model_architecture: Brief description of a TensorFlow model architecture suitable for this experiment
-        - tensorflow_approach: Detailed description of how TensorFlow would be used
+        Please design an experiment to test this hypothesis. 
+        Include methodology, variables, controls, expected outcomes, and limitations.
+        
+        Format your response as JSON with the following structure:
+        {{
+            "experiment_title": "Title of the experiment",
+            "methodology": "Detailed methodology",
+            "variables": {{
+                "independent": ["Variable 1", "Variable 2"],
+                "dependent": ["Variable 3", "Variable 4"]
+            }},
+            "controls": "Control measures",
+            "expected_outcomes": "Expected results",
+            "limitations": "Potential limitations"
+        }}
         """
         
-        # Format hypothesis for the prompt
-        hypothesis_text = hypothesis.get('hypothesis_text', '')
-        reasoning = hypothesis.get('reasoning', '')
-        
-        input_text = f"Hypothesis: {hypothesis_text}\n\n"
-        
-        if reasoning:
-            input_text += f"Reasoning: {reasoning}\n\n"
-        
-        if 'supporting_evidence' in hypothesis:
-            input_text += "Supporting Evidence:\n"
-            for source, evidence in hypothesis['supporting_evidence'].items():
-                input_text += f"- {source}: {evidence}\n"
-        
-        if 'tensorflow_approach' in hypothesis:
-            input_text += f"\nSuggested TensorFlow Approach: {hypothesis['tensorflow_approach']}\n"
-        
-        # Call OpenAI API
+        # Call the OpenAI API
+        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+        # do not change this unless explicitly requested by the user
         response = client.chat.completions.create(
-            model=DEFAULT_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": input_text}
-            ],
-            response_format={"type": "json_object"}
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.4,
+            max_tokens=1000
         )
         
-        # Parse and return the result
-        result = json.loads(response.choices[0].message.content)
+        # Parse the response
+        content = response.choices[0].message.content
+        result = json.loads(content)
+        
+        # Ensure the expected structure
+        if "experiment_title" not in result or "methodology" not in result:
+            logger.warning("OpenAI response missing expected fields")
+            return {
+                "experiment_title": f"Experiment for: {hypothesis[:50]}...",
+                "methodology": "No methodology provided",
+                "variables": {"independent": [], "dependent": []},
+                "controls": "No controls specified",
+                "expected_outcomes": "No expected outcomes provided",
+                "limitations": "No limitations identified"
+            }
+        
         return result
+    
     except Exception as e:
         logger.error(f"Error designing experiment: {e}")
-        # Return a minimal response if there's an error
         return {
-            "title": f"Error designing experiment for hypothesis",
-            "methodology": "An error occurred during experiment design.",
+            "experiment_title": f"Error designing experiment for: {hypothesis[:50]}...",
+            "methodology": "An error occurred during experiment design",
             "variables": {"independent": [], "dependent": []},
-            "controls": "",
-            "expected_outcomes": "",
-            "limitations": "",
-            "model_architecture": "",
-            "tensorflow_approach": ""
+            "controls": "Not specified due to error",
+            "expected_outcomes": "Not available",
+            "limitations": "Could not complete design"
+        }
+
+def analyze_query(query_text: str) -> Dict[str, Any]:
+    """
+    Analyze a query to determine its type and relevance to TensorFlow
+    
+    Args:
+        query_text (str): The query to analyze
+        
+    Returns:
+        dict: Query analysis results
+    """
+    logger.info(f"Analyzing query: {query_text}")
+    
+    try:
+        # Prepare the prompt for OpenAI
+        prompt = f"""
+        Query: {query_text}
+        
+        Please analyze this query to determine:
+        1. The type of query (e.g., paper_search, summarization, hypothesis, experiment, visualization, tensorflow_specific)
+        2. Its relevance to TensorFlow and machine learning research (score from 0 to 1)
+        
+        Format your response as JSON with the following structure:
+        {{
+            "query_type": "paper_search",
+            "relevance_score": 0.85,
+            "tensorflow_specific_terms": ["term1", "term2"]
+        }}
+        """
+        
+        # Call the OpenAI API
+        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+        # do not change this unless explicitly requested by the user
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+            max_tokens=300
+        )
+        
+        # Parse the response
+        content = response.choices[0].message.content
+        result = json.loads(content)
+        
+        # Ensure the expected structure
+        if "query_type" not in result or "relevance_score" not in result:
+            logger.warning("OpenAI response missing expected fields")
+            return {
+                "query_type": "general",
+                "relevance_score": 0.5,
+                "tensorflow_specific_terms": []
+            }
+        
+        return result
+    
+    except Exception as e:
+        logger.error(f"Error analyzing query: {e}")
+        return {
+            "query_type": "general",
+            "relevance_score": 0.0,
+            "tensorflow_specific_terms": []
         }

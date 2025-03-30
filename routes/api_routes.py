@@ -1,466 +1,577 @@
 """
 API routes for AURA Research Assistant
+Handles AJAX requests and returns JSON responses
 """
 
 import json
 import logging
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify
-from app import db
-from models import ResearchProject, ResearchQuery, Paper, PaperSummary, Hypothesis, ExperimentDesign, ChatMessage
-from agents.tensorflow_agent import TensorFlowAgent
-from services import openai_service
+from flask import Blueprint, request, jsonify, abort
+from sqlalchemy.exc import SQLAlchemyError
 
-# Set up logging
+from models import db, ResearchProject, ResearchQuery, Paper, PaperSummary, Hypothesis, ExperimentDesign, ChatMessage
+from agents.agent_controller import AgentController
+from services.openai_service import generate_hypothesis, design_experiment, summarize_paper
+
+# Configure logging
 logger = logging.getLogger(__name__)
 
+# Initialize agent controller
+agent_controller = AgentController()
+
 # Create blueprint
-api_bp = Blueprint('api', __name__)
+api_bp = Blueprint("api", __name__)
 
-# Initialize agents
-tensorflow_agent = TensorFlowAgent()
-
-@api_bp.route('/projects', methods=['GET'])
-def get_projects():
-    """Get all projects"""
-    projects = ResearchProject.query.order_by(ResearchProject.updated_at.desc()).all()
-    return jsonify({
-        'projects': [
-            {
-                'id': project.id,
-                'title': project.title,
-                'description': project.description,
-                'created_at': project.created_at.isoformat(),
-                'updated_at': project.updated_at.isoformat(),
-                'paper_count': len(project.papers)
-            } for project in projects
-        ]
-    })
-
-@api_bp.route('/projects', methods=['POST'])
+# Project endpoints
+@api_bp.route("/projects", methods=["POST"])
 def create_project():
-    """Create a new project"""
-    data = request.json
+    """Create a new research project"""
+    try:
+        data = request.json
+        
+        # Validate required fields
+        if not data.get("title"):
+            return jsonify({"error": "Project title is required"}), 400
+        
+        # Create new project
+        project = ResearchProject(
+            title=data.get("title"),
+            description=data.get("description", "")
+        )
+        
+        # Save to database
+        db.session.add(project)
+        db.session.commit()
+        
+        return jsonify({
+            "id": project.id,
+            "title": project.title,
+            "description": project.description,
+            "created_at": project.created_at.isoformat()
+        }), 201
     
-    title = data.get('title', '').strip()
-    description = data.get('description', '').strip()
+    except SQLAlchemyError as e:
+        logger.error(f"Database error creating project: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error creating project"}), 500
     
-    if not title:
-        return jsonify({'error': 'Title is required'}), 400
-    
-    project = ResearchProject(
-        title=title,
-        description=description
-    )
-    
-    db.session.add(project)
-    db.session.commit()
-    
-    return jsonify({
-        'id': project.id,
-        'title': project.title,
-        'description': project.description,
-        'created_at': project.created_at.isoformat(),
-        'updated_at': project.updated_at.isoformat()
-    })
+    except Exception as e:
+        logger.error(f"Error creating project: {e}")
+        return jsonify({"error": "Error creating project"}), 500
 
-@api_bp.route('/projects/<int:project_id>', methods=['GET'])
-def get_project(project_id):
-    """Get a specific project"""
-    project = ResearchProject.query.get_or_404(project_id)
-    
-    return jsonify({
-        'id': project.id,
-        'title': project.title,
-        'description': project.description,
-        'created_at': project.created_at.isoformat(),
-        'updated_at': project.updated_at.isoformat(),
-        'paper_count': len(project.papers),
-        'hypothesis_count': len(project.hypotheses)
-    })
-
-@api_bp.route('/projects/<int:project_id>', methods=['DELETE'])
+@api_bp.route("/projects/<int:project_id>", methods=["DELETE"])
 def delete_project(project_id):
-    """Delete a project"""
-    project = ResearchProject.query.get_or_404(project_id)
+    """Delete a research project"""
+    try:
+        project = ResearchProject.query.get_or_404(project_id)
+        
+        # Delete the project
+        db.session.delete(project)
+        db.session.commit()
+        
+        return jsonify({"message": "Project deleted successfully"}), 200
     
-    db.session.delete(project)
-    db.session.commit()
+    except SQLAlchemyError as e:
+        logger.error(f"Database error deleting project: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error deleting project"}), 500
     
-    return jsonify({
-        'success': True,
-        'message': f'Project {project_id} deleted'
-    })
+    except Exception as e:
+        logger.error(f"Error deleting project: {e}")
+        return jsonify({"error": "Error deleting project"}), 500
 
-@api_bp.route('/projects/<int:project_id>/papers', methods=['GET'])
-def get_papers(project_id):
-    """Get all papers for a project"""
-    papers = Paper.query.filter_by(project_id=project_id).all()
+# Paper search and management
+@api_bp.route("/projects/<int:project_id>/search", methods=["POST"])
+def search_papers(project_id):
+    """Search for papers"""
+    try:
+        data = request.json
+        query = data.get("query", "")
+        
+        if not query:
+            return jsonify({"error": "Search query is required"}), 400
+        
+        # Get the project
+        project = ResearchProject.query.get_or_404(project_id)
+        
+        # Create a research query record
+        research_query = ResearchQuery(
+            query_text=query,
+            project_id=project_id
+        )
+        db.session.add(research_query)
+        db.session.commit()
+        
+        # Use agent controller to search for papers
+        results = agent_controller.process_research_query(project_id, query)
+        
+        return jsonify(results), 200
     
-    return jsonify({
-        'papers': [
-            {
-                'id': paper.id,
-                'title': paper.title,
-                'authors': paper.get_authors(),
-                'abstract': paper.abstract,
-                'url': paper.url,
-                'pdf_url': paper.pdf_url,
-                'published_date': paper.published_date.isoformat() if paper.published_date else None,
-                'source': paper.source,
-                'has_summary': bool(paper.summary)
-            } for paper in papers
-        ]
-    })
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during paper search: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error during paper search"}), 500
+    
+    except Exception as e:
+        logger.error(f"Error searching for papers: {e}")
+        return jsonify({"error": "Error searching for papers"}), 500
 
-@api_bp.route('/projects/<int:project_id>/papers', methods=['POST'])
+@api_bp.route("/projects/<int:project_id>/papers", methods=["POST"])
 def add_paper(project_id):
     """Add a paper to a project"""
-    # Check if project exists
-    project = ResearchProject.query.get_or_404(project_id)
-    
-    data = request.json
-    
-    title = data.get('title', '').strip()
-    if not title:
-        return jsonify({'error': 'Title is required'}), 400
-    
-    # Create paper
-    paper = Paper(
-        title=title,
-        abstract=data.get('abstract', '').strip(),
-        url=data.get('url', '').strip(),
-        pdf_url=data.get('pdf_url', '').strip(),
-        source=data.get('source', 'manual'),
-        external_id=data.get('external_id', ''),
-        project_id=project_id
-    )
-    
-    # Set published date if provided
-    published_date = data.get('published_date')
-    if published_date:
-        try:
-            if 'T' in published_date:
-                paper.published_date = datetime.fromisoformat(published_date)
-            else:
-                paper.published_date = datetime.strptime(published_date, '%Y-%m-%d')
-        except ValueError:
-            logger.warning(f"Invalid date format: {published_date}")
-    
-    # Set authors if provided
-    authors = data.get('authors', [])
-    if authors:
-        paper.set_authors(authors)
-    
-    # Save to database
-    db.session.add(paper)
-    db.session.commit()
-    
-    # Update project's updated_at timestamp
-    project.updated_at = datetime.utcnow()
-    db.session.commit()
-    
-    return jsonify({
-        'id': paper.id,
-        'title': paper.title,
-        'authors': paper.get_authors(),
-        'abstract': paper.abstract,
-        'url': paper.url,
-        'pdf_url': paper.pdf_url,
-        'published_date': paper.published_date.isoformat() if paper.published_date else None,
-        'source': paper.source
-    })
-
-@api_bp.route('/projects/<int:project_id>/papers/<int:paper_id>', methods=['GET'])
-def get_paper(project_id, paper_id):
-    """Get a specific paper"""
-    paper = Paper.query.filter_by(id=paper_id, project_id=project_id).first_or_404()
-    
-    paper_data = {
-        'id': paper.id,
-        'title': paper.title,
-        'authors': paper.get_authors(),
-        'abstract': paper.abstract,
-        'url': paper.url,
-        'pdf_url': paper.pdf_url,
-        'published_date': paper.published_date.isoformat() if paper.published_date else None,
-        'source': paper.source,
-        'external_id': paper.external_id
-    }
-    
-    # Add summary if available
-    if paper.summary:
-        paper_data['summary'] = {
-            'summary_text': paper.summary.summary_text,
-            'key_findings': paper.summary.get_key_findings(),
-            'created_at': paper.summary.created_at.isoformat()
-        }
-    
-    return jsonify(paper_data)
-
-@api_bp.route('/projects/<int:project_id>/papers/<int:paper_id>/summarize', methods=['POST'])
-def summarize_paper(project_id, paper_id):
-    """Summarize a paper"""
-    paper = Paper.query.filter_by(id=paper_id, project_id=project_id).first_or_404()
-    
-    # Check if paper already has a summary
-    if paper.summary:
-        return jsonify({
-            'message': 'Paper already has a summary',
-            'summary': {
-                'summary_text': paper.summary.summary_text,
-                'key_findings': paper.summary.get_key_findings()
-            }
-        })
-    
-    # Create paper dictionary for OpenAI service
-    paper_dict = {
-        'title': paper.title,
-        'authors': paper.get_authors(),
-        'abstract': paper.abstract
-    }
-    
-    # Generate summary with OpenAI
     try:
-        summary_data = openai_service.summarize_paper(paper_dict)
+        data = request.json
         
-        # Create summary object
+        # Validate required fields
+        if not data.get("title"):
+            return jsonify({"error": "Paper title is required"}), 400
+        
+        # Check if the project exists
+        project = ResearchProject.query.get_or_404(project_id)
+        
+        # Create new paper
+        paper = Paper(
+            title=data.get("title"),
+            abstract=data.get("abstract", ""),
+            url=data.get("url", ""),
+            pdf_url=data.get("pdf_url", ""),
+            source=data.get("source", "manual"),
+            external_id=data.get("id", ""),
+            project_id=project_id
+        )
+        
+        # Handle authors
+        if data.get("authors"):
+            paper.set_authors(data["authors"])
+        
+        # Handle metadata
+        if data.get("metadata"):
+            paper.set_metadata(data["metadata"])
+        
+        # Handle published date
+        if data.get("published_date"):
+            try:
+                paper.published_date = datetime.fromisoformat(data["published_date"])
+            except (ValueError, TypeError):
+                # If we can't parse the date, ignore it
+                pass
+        
+        # Save to database
+        db.session.add(paper)
+        db.session.commit()
+        
+        return jsonify({
+            "id": paper.id,
+            "title": paper.title,
+            "message": "Paper added successfully"
+        }), 201
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error adding paper: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error adding paper"}), 500
+    
+    except Exception as e:
+        logger.error(f"Error adding paper: {e}")
+        return jsonify({"error": "Error adding paper"}), 500
+
+@api_bp.route("/papers/<int:paper_id>/summarize", methods=["POST"])
+def summarize_paper_api(paper_id):
+    """Summarize a paper"""
+    try:
+        # Get the paper
+        paper = Paper.query.get_or_404(paper_id)
+        
+        # Check if we already have a summary
+        if paper.summary:
+            return jsonify({
+                "message": "Paper already has a summary",
+                "summary": paper.summary.summary_text,
+                "key_findings": paper.summary.get_key_findings() if paper.summary.key_findings else []
+            }), 200
+        
+        # Generate summary using OpenAI
+        summary_data = summarize_paper(paper.title, paper.abstract)
+        
+        # Create summary record
         summary = PaperSummary(
-            summary_text=summary_data.get('summary', ''),
+            summary_text=summary_data.get("summary", ""),
             paper_id=paper.id
         )
         
         # Set key findings
-        key_findings = summary_data.get('key_findings', [])
-        if key_findings:
-            summary.set_key_findings(key_findings)
+        if summary_data.get("key_findings"):
+            summary.set_key_findings(summary_data["key_findings"])
         
         # Save to database
         db.session.add(summary)
         db.session.commit()
         
         return jsonify({
-            'message': 'Paper summarized successfully',
-            'summary': {
-                'summary_text': summary.summary_text,
-                'key_findings': summary.get_key_findings()
-            }
-        })
+            "message": "Paper summarized successfully",
+            "summary": summary.summary_text,
+            "key_findings": summary.get_key_findings()
+        }), 200
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error summarizing paper: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error summarizing paper"}), 500
+    
     except Exception as e:
         logger.error(f"Error summarizing paper: {e}")
-        return jsonify({
-            'error': f'Error summarizing paper: {str(e)}'
-        }), 500
+        return jsonify({"error": "Error summarizing paper"}), 500
 
-@api_bp.route('/projects/<int:project_id>/tf-analysis', methods=['POST'])
-def tensorflow_analysis(project_id):
-    """Run TensorFlow analysis on project papers"""
-    project = ResearchProject.query.get_or_404(project_id)
-    papers = Paper.query.filter_by(project_id=project_id).all()
-    
-    if not papers:
-        return jsonify({
-            'error': 'No papers available for analysis'
-        }), 400
-    
-    data = request.json or {}
-    analysis_type = data.get('analysis_type', 'all')
-    
-    # Prepare papers for analysis
-    paper_data = []
-    for paper in papers:
-        paper_dict = {
-            'id': paper.id,
-            'title': paper.title,
-            'authors': paper.get_authors(),
-            'abstract': paper.abstract,
-            'published_date': paper.published_date.isoformat() if paper.published_date else None,
-            'source': paper.source
-        }
-        
-        # Add summary if available
-        if paper.summary:
-            paper_dict['summary'] = {
-                'summary_text': paper.summary.summary_text,
-                'key_findings': paper.summary.get_key_findings()
-            }
-        
-        paper_data.append(paper_dict)
-    
-    # Run TensorFlow analysis
+# Hypothesis endpoints
+@api_bp.route("/projects/<int:project_id>/hypotheses", methods=["POST"])
+def generate_hypothesis_api(project_id):
+    """Generate a hypothesis for a project"""
     try:
-        analysis_results = tensorflow_agent.analyze_papers_with_tf(paper_data, analysis_type)
+        data = request.json
+        research_question = data.get("research_question", "")
         
-        # Save analysis results to be accessible from window object in JavaScript
-        window_data = {
-            'project_id': project_id,
-            'analysis_type': analysis_type,
-            'paper_count': len(papers),
-            'timestamp': datetime.utcnow().isoformat()
-        }
+        if not research_question:
+            return jsonify({"error": "Research question is required"}), 400
         
-        if 'topic_analysis' in analysis_results:
-            window_data['topic_analysis'] = analysis_results['topic_analysis']
+        # Get the project
+        project = ResearchProject.query.get_or_404(project_id)
         
-        if 'cluster_analysis' in analysis_results:
-            window_data['cluster_analysis'] = analysis_results['cluster_analysis']
+        # Get project papers
+        papers = Paper.query.filter_by(project_id=project_id).all()
         
-        if 'trend_analysis' in analysis_results:
-            window_data['trend_analysis'] = analysis_results['trend_analysis']
-        
-        if 'visualization_data' in analysis_results:
-            window_data['visualization_data'] = analysis_results['visualization_data']
-        
-        # Add response message
-        analysis_results['message'] = f"TensorFlow analysis completed on {len(papers)} papers"
-        
-        return jsonify(analysis_results)
-    except Exception as e:
-        logger.error(f"Error running TensorFlow analysis: {e}")
-        return jsonify({
-            'error': f'Error running TensorFlow analysis: {str(e)}'
-        }), 500
-
-@api_bp.route('/projects/<int:project_id>/research-gaps', methods=['POST'])
-def identify_research_gaps(project_id):
-    """Identify research gaps in project papers"""
-    project = ResearchProject.query.get_or_404(project_id)
-    papers = Paper.query.filter_by(project_id=project_id).all()
-    
-    if not papers:
-        return jsonify({
-            'error': 'No papers available for analysis'
-        }), 400
-    
-    # Prepare papers for analysis
-    paper_data = []
-    for paper in papers:
-        paper_dict = {
-            'id': paper.id,
-            'title': paper.title,
-            'authors': paper.get_authors(),
-            'abstract': paper.abstract,
-            'published_date': paper.published_date.isoformat() if paper.published_date else None,
-            'source': paper.source
-        }
-        
-        # Add summary if available
-        if paper.summary:
-            paper_dict['summary'] = {
-                'summary_text': paper.summary.summary_text,
-                'key_findings': paper.summary.get_key_findings()
+        # Prepare papers for API
+        paper_data = []
+        for paper in papers:
+            paper_dict = {
+                "id": paper.id,
+                "title": paper.title,
+                "abstract": paper.abstract
             }
+            
+            if paper.summary:
+                paper_dict["summary"] = {
+                    "summary_text": paper.summary.summary_text,
+                    "key_findings": paper.summary.get_key_findings()
+                }
+            
+            paper_data.append(paper_dict)
         
-        paper_data.append(paper_dict)
-    
-    # Identify research gaps
-    try:
-        gap_analysis = tensorflow_agent.identify_research_gaps(paper_data)
+        # Generate hypothesis using agent controller
+        hypothesis_data = agent_controller.generate_hypothesis(research_question, paper_data)
         
-        # Save to chat history
-        chat_message = ChatMessage(
-            role='agent',
-            content=json.dumps(gap_analysis),
-            agent_type='tensorflow',
+        # Create hypothesis record
+        hypothesis = Hypothesis(
+            hypothesis_text=hypothesis_data.get("hypothesis_text", ""),
+            reasoning=hypothesis_data.get("reasoning", ""),
+            confidence_score=hypothesis_data.get("confidence_score", 0.0),
             project_id=project_id
         )
-        db.session.add(chat_message)
+        
+        # Set supporting evidence
+        if hypothesis_data.get("supporting_evidence"):
+            hypothesis.set_supporting_evidence(hypothesis_data["supporting_evidence"])
+        
+        # Save to database
+        db.session.add(hypothesis)
         db.session.commit()
         
-        return jsonify(gap_analysis)
+        return jsonify({
+            "message": "Hypothesis generated successfully",
+            "id": hypothesis.id,
+            "hypothesis": hypothesis.hypothesis_text,
+            "confidence": hypothesis.confidence_score
+        }), 201
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error generating hypothesis: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error generating hypothesis"}), 500
+    
+    except Exception as e:
+        logger.error(f"Error generating hypothesis: {e}")
+        return jsonify({"error": "Error generating hypothesis"}), 500
+
+# Experiment design endpoint
+@api_bp.route("/hypotheses/<int:hypothesis_id>/experiments", methods=["POST"])
+def design_experiment_api(hypothesis_id):
+    """Design an experiment for a hypothesis"""
+    try:
+        # Get the hypothesis
+        hypothesis = Hypothesis.query.get_or_404(hypothesis_id)
+        
+        # Use OpenAI to design the experiment
+        experiment_data = design_experiment(hypothesis.hypothesis_text)
+        
+        # Create experiment record
+        experiment = ExperimentDesign(
+            title=experiment_data.get("experiment_title", f"Experiment for Hypothesis {hypothesis_id}"),
+            methodology=experiment_data.get("methodology", ""),
+            controls=experiment_data.get("controls", ""),
+            expected_outcomes=experiment_data.get("expected_outcomes", ""),
+            limitations=experiment_data.get("limitations", ""),
+            hypothesis_id=hypothesis_id
+        )
+        
+        # Set variables
+        if experiment_data.get("variables"):
+            experiment.set_variables(experiment_data["variables"])
+        
+        # Save to database
+        db.session.add(experiment)
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Experiment designed successfully",
+            "id": experiment.id,
+            "title": experiment.title
+        }), 201
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error designing experiment: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error designing experiment"}), 500
+    
+    except Exception as e:
+        logger.error(f"Error designing experiment: {e}")
+        return jsonify({"error": "Error designing experiment"}), 500
+
+# TensorFlow analysis endpoint
+@api_bp.route("/projects/<int:project_id>/analyze", methods=["POST"])
+def analyze_project(project_id):
+    """Analyze project papers with TensorFlow"""
+    try:
+        data = request.json
+        analysis_type = data.get("analysis_type", "all")
+        
+        # Get the project
+        project = ResearchProject.query.get_or_404(project_id)
+        
+        # Get project papers
+        papers = Paper.query.filter_by(project_id=project_id).all()
+        
+        # Prepare papers for API
+        paper_data = []
+        for paper in papers:
+            paper_dict = {
+                "id": paper.id,
+                "title": paper.title,
+                "abstract": paper.abstract,
+                "published_date": paper.published_date.isoformat() if paper.published_date else None
+            }
+            
+            if paper.summary:
+                paper_dict["summary"] = {
+                    "summary_text": paper.summary.summary_text,
+                    "key_findings": paper.summary.get_key_findings()
+                }
+            
+            paper_data.append(paper_dict)
+        
+        # Perform TensorFlow analysis using the agent
+        analysis_result = agent_controller.tensorflow_agent.analyze_papers_with_tf(paper_data, analysis_type)
+        
+        return jsonify(analysis_result), 200
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during analysis: {e}")
+        return jsonify({"error": "Database error during analysis"}), 500
+    
+    except Exception as e:
+        logger.error(f"Error analyzing project: {e}")
+        return jsonify({"error": f"Error analyzing project: {str(e)}"}), 500
+
+# Research gap identification endpoint
+@api_bp.route("/projects/<int:project_id>/gaps", methods=["POST"])
+def identify_gaps(project_id):
+    """Identify research gaps for a project"""
+    try:
+        # Get the project
+        project = ResearchProject.query.get_or_404(project_id)
+        
+        # Get project papers
+        papers = Paper.query.filter_by(project_id=project_id).all()
+        
+        # Prepare papers for API
+        paper_data = []
+        for paper in papers:
+            paper_dict = {
+                "id": paper.id,
+                "title": paper.title,
+                "abstract": paper.abstract,
+                "published_date": paper.published_date.isoformat() if paper.published_date else None
+            }
+            
+            if paper.summary:
+                paper_dict["summary"] = {
+                    "summary_text": paper.summary.summary_text,
+                    "key_findings": paper.summary.get_key_findings()
+                }
+            
+            paper_data.append(paper_dict)
+        
+        # Identify research gaps using the TensorFlow agent
+        gaps_result = agent_controller.tensorflow_agent.identify_research_gaps(paper_data)
+        
+        return jsonify(gaps_result), 200
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error identifying gaps: {e}")
+        return jsonify({"error": "Database error identifying gaps"}), 500
+    
     except Exception as e:
         logger.error(f"Error identifying research gaps: {e}")
-        return jsonify({
-            'error': f'Error identifying research gaps: {str(e)}'
-        }), 500
+        return jsonify({"error": f"Error identifying research gaps: {str(e)}"}), 500
 
-@api_bp.route('/projects/<int:project_id>/chat', methods=['POST'])
+# Chat endpoint
+@api_bp.route("/projects/<int:project_id>/chat", methods=["POST"])
 def chat(project_id):
-    """Chat with the research assistant"""
-    project = ResearchProject.query.get_or_404(project_id)
-    data = request.json
-    
-    message = data.get('message', '').strip()
-    if not message:
-        return jsonify({'error': 'Message is required'}), 400
-    
-    # Store user message
-    user_message = ChatMessage(
-        role='user',
-        content=message,
-        project_id=project_id
-    )
-    db.session.add(user_message)
-    db.session.commit()
-    
-    # Analyze the query to determine the appropriate agent
+    """Handle chat messages"""
     try:
-        query_analysis = openai_service.analyze_query(message)
-        tensorflow_relevance = query_analysis.get('tensorflow_relevance', '')
-        relevance_score = query_analysis.get('relevance_score', 0)
+        data = request.json
+        message = data.get("message", "")
         
-        # Use TensorFlow agent if the query is relevant to TensorFlow
-        agent_type = 'tensorflow' if relevance_score > 0.7 else 'general'
+        if not message:
+            return jsonify({"error": "Message is required"}), 400
         
-        # Generate response based on agent type
-        if agent_type == 'tensorflow':
-            papers = Paper.query.filter_by(project_id=project_id).all()
-            paper_data = []
-            for paper in papers:
-                paper_dict = {
-                    'id': paper.id,
-                    'title': paper.title,
-                    'abstract': paper.abstract
-                }
-                paper_data.append(paper_dict)
-            
-            if 'hypothesis' in message.lower():
-                # Generate a hypothesis
-                response = tensorflow_agent.suggest_experimental_design(message)
-                response_text = f"Here's a potential experiment design using TensorFlow:\n\n{response.get('experiment_title')}\n\n{response.get('tensorflow_approach')}\n\nModel architecture: {response.get('model_architecture')}"
-            else:
-                # General TensorFlow response
-                response_text = f"I'll analyze this using TensorFlow. {tensorflow_relevance}"
-        else:
-            # General response using OpenAI
-            response = openai_service.client.chat.completions.create(
-                model=openai_service.DEFAULT_MODEL,
-                messages=[
-                    {"role": "system", "content": "You are a research assistant that helps with research projects."},
-                    {"role": "user", "content": message}
-                ]
-            )
-            response_text = response.choices[0].message.content
+        # Get the project
+        project = ResearchProject.query.get_or_404(project_id)
         
-        # Store agent response
+        # Save user message
+        user_message = ChatMessage(
+            role="user",
+            content=message,
+            project_id=project_id
+        )
+        db.session.add(user_message)
+        db.session.commit()
+        
+        # Process message with agent controller
+        response = agent_controller.handle_chat_query(project_id, message)
+        
+        # Save agent response
         agent_message = ChatMessage(
-            role='agent',
-            content=response_text,
-            agent_type=agent_type,
+            role="agent",
+            content=response.get("content", "I don't have a response for that."),
+            agent_type=response.get("agent_type", "general"),
             project_id=project_id
         )
         db.session.add(agent_message)
         db.session.commit()
         
         return jsonify({
-            'message': response_text,
-            'agent_type': agent_type
-        })
+            "role": "agent",
+            "content": agent_message.content,
+            "agent_type": agent_message.agent_type,
+            "created_at": agent_message.created_at.isoformat()
+        }), 200
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during chat: {e}")
+        db.session.rollback()
+        return jsonify({"error": "Database error during chat"}), 500
+    
     except Exception as e:
-        logger.error(f"Error generating chat response: {e}")
+        logger.error(f"Error handling chat: {e}")
+        return jsonify({"error": "Error handling chat message"}), 500
+
+# Export endpoint
+@api_bp.route("/projects/<int:project_id>/export", methods=["GET"])
+def export_project(project_id):
+    """Export a project as JSON"""
+    try:
+        # Get the project
+        project = ResearchProject.query.get_or_404(project_id)
         
-        # Store error message
-        error_message = ChatMessage(
-            role='system',
-            content=f"Error generating response: {str(e)}",
-            project_id=project_id
-        )
-        db.session.add(error_message)
-        db.session.commit()
+        # Get all project data
+        papers = Paper.query.filter_by(project_id=project_id).all()
+        hypotheses = Hypothesis.query.filter_by(project_id=project_id).all()
+        queries = ResearchQuery.query.filter_by(project_id=project_id).all()
         
-        return jsonify({
-            'error': f'Error generating response: {str(e)}',
-            'message': 'I encountered an error while processing your request. Please try again.',
-            'agent_type': 'system'
-        }), 500
+        # Prepare export data
+        export_data = {
+            "project": {
+                "id": project.id,
+                "title": project.title,
+                "description": project.description,
+                "created_at": project.created_at.isoformat(),
+                "updated_at": project.updated_at.isoformat()
+            },
+            "papers": [],
+            "hypotheses": [],
+            "queries": []
+        }
+        
+        # Add papers
+        for paper in papers:
+            paper_dict = {
+                "id": paper.id,
+                "title": paper.title,
+                "abstract": paper.abstract,
+                "url": paper.url,
+                "pdf_url": paper.pdf_url,
+                "source": paper.source,
+                "external_id": paper.external_id,
+                "created_at": paper.created_at.isoformat(),
+                "authors": paper.get_authors(),
+                "metadata": paper.get_metadata(),
+                "published_date": paper.published_date.isoformat() if paper.published_date else None
+            }
+            
+            # Add summary if available
+            if paper.summary:
+                paper_dict["summary"] = {
+                    "summary_text": paper.summary.summary_text,
+                    "key_findings": paper.summary.get_key_findings(),
+                    "created_at": paper.summary.created_at.isoformat()
+                }
+            
+            export_data["papers"].append(paper_dict)
+        
+        # Add hypotheses
+        for hypothesis in hypotheses:
+            hypothesis_dict = {
+                "id": hypothesis.id,
+                "hypothesis_text": hypothesis.hypothesis_text,
+                "reasoning": hypothesis.reasoning,
+                "confidence_score": hypothesis.confidence_score,
+                "supporting_evidence": hypothesis.get_supporting_evidence(),
+                "created_at": hypothesis.created_at.isoformat(),
+                "experiments": []
+            }
+            
+            # Add experiments
+            experiments = ExperimentDesign.query.filter_by(hypothesis_id=hypothesis.id).all()
+            for experiment in experiments:
+                experiment_dict = {
+                    "id": experiment.id,
+                    "title": experiment.title,
+                    "methodology": experiment.methodology,
+                    "variables": experiment.get_variables(),
+                    "controls": experiment.controls,
+                    "expected_outcomes": experiment.expected_outcomes,
+                    "limitations": experiment.limitations,
+                    "created_at": experiment.created_at.isoformat()
+                }
+                hypothesis_dict["experiments"].append(experiment_dict)
+            
+            export_data["hypotheses"].append(hypothesis_dict)
+        
+        # Add queries
+        for query in queries:
+            query_dict = {
+                "id": query.id,
+                "query_text": query.query_text,
+                "created_at": query.created_at.isoformat()
+            }
+            export_data["queries"].append(query_dict)
+        
+        return jsonify(export_data), 200
+    
+    except SQLAlchemyError as e:
+        logger.error(f"Database error exporting project: {e}")
+        return jsonify({"error": "Database error exporting project"}), 500
+    
+    except Exception as e:
+        logger.error(f"Error exporting project: {e}")
+        return jsonify({"error": "Error exporting project"}), 500

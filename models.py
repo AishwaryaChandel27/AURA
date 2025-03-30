@@ -4,6 +4,7 @@ Database models for AURA Research Assistant
 
 import json
 from datetime import datetime
+
 from app import db
 
 class ResearchProject(db.Model):
@@ -36,7 +37,7 @@ class ResearchQuery(db.Model):
     papers = db.relationship('Paper', backref='query', lazy=True)
     
     def __repr__(self):
-        return f"<ResearchQuery {self.id}: {self.query_text[:50]}...>"
+        return f"<ResearchQuery {self.id}: {self.query_text[:30]}...>"
 
 class Paper(db.Model):
     """Research paper model"""
@@ -67,9 +68,9 @@ class Paper(db.Model):
     
     def get_metadata(self):
         """Get metadata as Python dictionary"""
-        if self.paper_metadata:
-            return json.loads(self.paper_metadata)
-        return {}
+        if not self.paper_metadata:
+            return {}
+        return json.loads(self.paper_metadata)
     
     def set_authors(self, authors_list):
         """Set authors as JSON"""
@@ -77,9 +78,9 @@ class Paper(db.Model):
     
     def get_authors(self):
         """Get authors as Python list"""
-        if self.authors:
-            return json.loads(self.authors)
-        return []
+        if not self.authors:
+            return []
+        return json.loads(self.authors)
     
     def __repr__(self):
         return f"<Paper {self.id}: {self.title}>"
@@ -100,9 +101,9 @@ class PaperSummary(db.Model):
     
     def get_key_findings(self):
         """Get key findings as Python list"""
-        if self.key_findings:
-            return json.loads(self.key_findings)
-        return []
+        if not self.key_findings:
+            return []
+        return json.loads(self.key_findings)
     
     def __repr__(self):
         return f"<PaperSummary {self.id} for Paper {self.paper_id}>"
@@ -128,9 +129,9 @@ class Hypothesis(db.Model):
     
     def get_supporting_evidence(self):
         """Get supporting evidence as Python dictionary"""
-        if self.supporting_evidence:
-            return json.loads(self.supporting_evidence)
-        return {}
+        if not self.supporting_evidence:
+            return {}
+        return json.loads(self.supporting_evidence)
     
     def __repr__(self):
         return f"<Hypothesis {self.id}: {self.hypothesis_text[:50]}...>"
@@ -155,9 +156,9 @@ class ExperimentDesign(db.Model):
     
     def get_variables(self):
         """Get variables as Python dictionary"""
-        if self.variables:
-            return json.loads(self.variables)
-        return {}
+        if not self.variables:
+            return {"independent": [], "dependent": []}
+        return json.loads(self.variables)
     
     def __repr__(self):
         return f"<ExperimentDesign {self.id}: {self.title}>"
@@ -174,4 +175,4 @@ class ChatMessage(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('research_project.id'), nullable=False)
     
     def __repr__(self):
-        return f"<ChatMessage {self.id}: {self.role}>"
+        return f"<ChatMessage {self.id} by {self.role}: {self.content[:30]}...>"

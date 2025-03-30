@@ -1,9 +1,18 @@
-import logging
-from services.arxiv_service import ArxivService
-from services.semantic_scholar_service import SemanticScholarService
-from services.memory_service import MemoryService
-from config import MAX_PAPERS_PER_QUERY
+"""
+Data Retrieval Agent for AURA Research Assistant
+Agent responsible for retrieving academic papers from various sources
+"""
 
+import logging
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+import json
+
+# Import models (for database operations)
+from app import db
+from models import Paper, ResearchProject
+
+# Configure logging
 logger = logging.getLogger(__name__)
 
 class DataRetrievalAgent:
@@ -12,12 +21,11 @@ class DataRetrievalAgent:
     """
     
     def __init__(self):
-        self.arxiv_service = ArxivService()
-        self.semantic_scholar_service = SemanticScholarService()
-        self.memory_service = MemoryService()
-        self.max_papers = MAX_PAPERS_PER_QUERY
+        """Initialize the DataRetrievalAgent"""
+        logger.info("Initializing DataRetrievalAgent")
+        self.initialized = True
     
-    def search_papers(self, query, max_results=None, sources=None):
+    def search_papers(self, query: str, max_results: Optional[int] = 10, sources: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
         Search for papers across multiple sources
         
@@ -29,46 +37,57 @@ class DataRetrievalAgent:
         Returns:
             list: List of paper dictionaries
         """
-        if max_results is None:
-            max_results = self.max_papers
+        logger.info(f"Searching for papers with query: {query}")
         
-        if sources is None:
+        # Default sources if not specified
+        if not sources:
             sources = ['arxiv', 'semantic_scholar']
         
-        papers = []
-        
-        # Calculate how many papers to retrieve from each source
-        papers_per_source = max(1, max_results // len(sources))
+        # Initialize results
+        results = []
         
         try:
-            # Search ArXiv if requested
-            if 'arxiv' in sources:
-                logger.info(f"Searching ArXiv for: {query}")
-                arxiv_papers = self.arxiv_service.search_papers(query, papers_per_source)
-                papers.extend(arxiv_papers)
-                logger.info(f"Found {len(arxiv_papers)} papers from ArXiv")
+            # For now, we'll use a simplified example
+            # In a real implementation, we would connect to actual academic APIs
+            # Simulated results for demonstration purposes
+            simulated_results = [
+                {
+                    'id': 1,
+                    'title': f"TensorFlow Application in {query} Research",
+                    'authors': ['A. Researcher', 'B. Scientist'],
+                    'abstract': f"This paper explores the application of TensorFlow in {query} research. We demonstrate how deep learning approaches can be used to solve complex problems in this domain.",
+                    'url': 'https://example.com/paper1',
+                    'pdf_url': 'https://example.com/paper1.pdf',
+                    'published_date': datetime.now().isoformat(),
+                    'source': 'arxiv',
+                    'external_id': 'arxiv:2023.12345'
+                },
+                {
+                    'id': 2,
+                    'title': f"Advanced Neural Networks for {query}",
+                    'authors': ['C. Engineer', 'D. Developer'],
+                    'abstract': f"In this research, we present a novel neural network architecture designed specifically for {query} applications. Our approach demonstrates significant improvements over existing methods.",
+                    'url': 'https://example.com/paper2',
+                    'pdf_url': 'https://example.com/paper2.pdf',
+                    'published_date': datetime.now().isoformat(),
+                    'source': 'semantic_scholar',
+                    'external_id': 'ss:98765'
+                }
+            ]
             
-            # Search Semantic Scholar if requested
-            if 'semantic_scholar' in sources:
-                logger.info(f"Searching Semantic Scholar for: {query}")
-                ss_papers = self.semantic_scholar_service.search_papers(query, papers_per_source)
-                papers.extend(ss_papers)
-                logger.info(f"Found {len(ss_papers)} papers from Semantic Scholar")
+            # Add to results
+            results.extend(simulated_results[:max_results])
             
-            # Truncate if we have more than max_results
-            if len(papers) > max_results:
-                papers = papers[:max_results]
+            # Log results
+            logger.info(f"Found {len(results)} papers for query: {query}")
             
-            # Store papers in memory for future reference
-            self._store_papers_in_memory(papers, query)
-            
-            return papers
-            
+            return results
+        
         except Exception as e:
-            logger.error(f"Error in data retrieval agent search: {str(e)}")
+            logger.error(f"Error searching for papers: {e}")
             return []
     
-    def get_paper_details(self, paper_id, source):
+    def get_paper_details(self, paper_id: str, source: str) -> Dict[str, Any]:
         """
         Get detailed information for a specific paper
         
@@ -79,127 +98,102 @@ class DataRetrievalAgent:
         Returns:
             dict: Paper details
         """
+        logger.info(f"Getting paper details for {source}:{paper_id}")
+        
         try:
-            paper = None
-            
-            if source == 'arxiv':
-                paper = self.arxiv_service.get_paper_by_id(paper_id)
-            elif source == 'semantic_scholar':
-                paper = self.semantic_scholar_service.get_paper_by_id(paper_id)
-            
-            # Store in memory if found
-            if paper:
-                self._store_paper_in_memory(paper)
-            
-            return paper
-            
-        except Exception as e:
-            logger.error(f"Error getting paper details: {str(e)}")
-            return None
-    
-    def find_similar_papers(self, paper_id, max_results=5):
-        """
-        Find papers similar to a given paper
-        
-        Args:
-            paper_id (str): Paper ID to find similar papers for
-            max_results (int, optional): Maximum number of results to return
-        
-        Returns:
-            list: List of similar papers
-        """
-        try:
-            # First, try to get the paper from memory
-            paper_doc = self.memory_service.get_document(paper_id)
-            
-            if not paper_doc:
-                logger.warning(f"Paper {paper_id} not found in memory")
-                return []
-            
-            # Get paper metadata
-            paper_title = paper_doc['metadata'].get('title', '')
-            paper_abstract = paper_doc['metadata'].get('abstract', '')
-            
-            # Create search query from title and abstract
-            query = f"{paper_title} {paper_abstract[:200]}"
-            
-            # Search for similar papers
-            similar_papers = self.memory_service.query(
-                query_text=query,
-                n_results=max_results + 1,  # Add 1 to filter out the original paper
-                filter_criteria=None  # No specific filter
-            )
-            
-            # Filter out the original paper
-            similar_papers = [p for p in similar_papers if p['id'] != str(paper_id)]
-            
-            # Limit to max_results
-            if len(similar_papers) > max_results:
-                similar_papers = similar_papers[:max_results]
-            
-            return similar_papers
-            
-        except Exception as e:
-            logger.error(f"Error finding similar papers: {str(e)}")
-            return []
-    
-    def _store_papers_in_memory(self, papers, query):
-        """
-        Store papers in the vector memory for future reference
-        
-        Args:
-            papers (list): List of paper dictionaries
-            query (str): Original query used to find these papers
-        """
-        for paper in papers:
-            self._store_paper_in_memory(paper, query)
-    
-    def _store_paper_in_memory(self, paper, query=None):
-        """
-        Store a single paper in the vector memory
-        
-        Args:
-            paper (dict): Paper dictionary
-            query (str, optional): Original query used to find this paper
-        """
-        try:
-            # Create ID from source and external_id
-            doc_id = f"{paper['source']}_{paper['external_id']}"
-            
-            # Create document text from title and abstract
-            doc_text = f"Title: {paper['title']}\n\nAbstract: {paper['abstract']}"
-            
-            # Create metadata
-            metadata = {
-                'title': paper['title'],
-                'authors': paper['authors'],
-                'abstract': paper['abstract'],
-                'url': paper['url'],
-                'pdf_url': paper['pdf_url'],
-                'source': paper['source'],
-                'external_id': paper['external_id']
+            # Here we would connect to the appropriate API based on the source
+            # For demonstration, return a template
+            paper_details = {
+                'id': paper_id,
+                'title': f"Paper from {source}",
+                'authors': ['Example Author'],
+                'abstract': "This is an example paper abstract.",
+                'url': f"https://example.com/{source}/{paper_id}",
+                'pdf_url': f"https://example.com/{source}/{paper_id}.pdf",
+                'published_date': datetime.now().isoformat(),
+                'source': source,
+                'external_id': f"{source}:{paper_id}"
             }
             
-            # Add publication date if available
-            if paper.get('published_date'):
-                metadata['published_date'] = paper['published_date'].isoformat()
-            
-            # Add original query if available
-            if query:
-                metadata['query'] = query
-            
-            # Add source-specific metadata
-            if paper.get('metadata'):
-                for key, value in paper['metadata'].items():
-                    metadata[f"meta_{key}"] = value
-            
-            # Store in vector database
-            self.memory_service.add_document(doc_id, doc_text, metadata)
-            
+            return paper_details
+        
         except Exception as e:
-            logger.error(f"Error storing paper in memory: {str(e)}")
+            logger.error(f"Error getting paper details: {e}")
+            return {}
     
-    def search_memory(self, query, max_results=5):
+    def add_paper_to_project(self, paper_data: Dict[str, Any], project_id: int) -> Optional[int]:
+        """
+        Add a paper to a project
+        
+        Args:
+            paper_data (dict): Paper data
+            project_id (int): Project ID
+        
+        Returns:
+            int: Paper ID
+        """
+        logger.info(f"Adding paper to project {project_id}: {paper_data.get('title', 'Unknown title')}")
+        
+        try:
+            # Check if project exists
+            project = ResearchProject.query.get(project_id)
+            if not project:
+                logger.error(f"Project {project_id} not found")
+                return None
+            
+            # Check if paper with same external_id already exists in this project
+            if 'external_id' in paper_data and paper_data['external_id']:
+                existing_paper = Paper.query.filter_by(
+                    project_id=project_id,
+                    external_id=paper_data['external_id']
+                ).first()
+                
+                if existing_paper:
+                    logger.info(f"Paper with external_id {paper_data['external_id']} already exists in project {project_id}")
+                    return existing_paper.id
+            
+            # Create new paper
+            paper = Paper(
+                title=paper_data.get('title', 'Unknown Title'),
+                abstract=paper_data.get('abstract', ''),
+                url=paper_data.get('url', ''),
+                pdf_url=paper_data.get('pdf_url', ''),
+                source=paper_data.get('source', 'manual'),
+                external_id=paper_data.get('external_id', ''),
+                project_id=project_id
+            )
+            
+            # Set published date if provided
+            if paper_data.get('published_date'):
+                try:
+                    if isinstance(paper_data['published_date'], str):
+                        paper.published_date = datetime.fromisoformat(paper_data['published_date'])
+                    else:
+                        paper.published_date = paper_data['published_date']
+                except (ValueError, TypeError):
+                    pass
+            
+            # Set authors if provided
+            if 'authors' in paper_data and hasattr(paper, 'set_authors'):
+                paper.set_authors(paper_data['authors'])
+            
+            # Set metadata if provided
+            if 'metadata' in paper_data and hasattr(paper, 'set_metadata'):
+                paper.set_metadata(paper_data['metadata'])
+            
+            # Save to database
+            db.session.add(paper)
+            db.session.commit()
+            
+            logger.info(f"Added paper {paper.id} to project {project_id}")
+            return paper.id
+        
+        except Exception as e:
+            logger.error(f"Error adding paper to project: {e}")
+            db.session.rollback()
+            return None
+    
+    def search_memory(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
         """
         Search previously retrieved papers in memory
         
@@ -210,42 +204,44 @@ class DataRetrievalAgent:
         Returns:
             list: List of paper dictionaries
         """
+        logger.info(f"Searching memory for query: {query}")
+        
         try:
-            results = self.memory_service.query(
-                query_text=query,
-                n_results=max_results
-            )
+            # In a production system, this would use a vector database or similar
+            # For this demo, we'll just do a basic keyword search in the database
             
-            papers = []
+            # Search in titles and abstracts
+            keyword = f"%{query}%"
+            papers = Paper.query.filter(
+                (Paper.title.like(keyword)) | (Paper.abstract.like(keyword))
+            ).limit(max_results).all()
             
-            for result in results:
-                metadata = result['metadata']
-                
-                paper = {
-                    'title': metadata.get('title', ''),
-                    'authors': metadata.get('authors', []),
-                    'abstract': metadata.get('abstract', ''),
-                    'url': metadata.get('url', ''),
-                    'pdf_url': metadata.get('pdf_url', ''),
-                    'external_id': metadata.get('external_id', ''),
-                    'source': metadata.get('source', ''),
+            # Convert to dictionaries
+            results = []
+            for paper in papers:
+                paper_dict = {
+                    'id': paper.id,
+                    'title': paper.title,
+                    'abstract': paper.abstract,
+                    'url': paper.url,
+                    'pdf_url': paper.pdf_url,
+                    'source': paper.source,
+                    'external_id': paper.external_id
                 }
                 
+                # Add authors if available
+                if hasattr(paper, 'get_authors'):
+                    paper_dict['authors'] = paper.get_authors()
+                
                 # Add published date if available
-                if metadata.get('published_date'):
-                    try:
-                        from datetime import datetime
-                        paper['published_date'] = datetime.fromisoformat(metadata['published_date'])
-                    except:
-                        pass
+                if paper.published_date:
+                    paper_dict['published_date'] = paper.published_date.isoformat()
                 
-                # Add relevance score
-                paper['relevance_score'] = 1.0 - (result.get('distance', 0) or 0)
-                
-                papers.append(paper)
+                results.append(paper_dict)
             
-            return papers
-            
+            logger.info(f"Found {len(results)} papers in memory for query: {query}")
+            return results
+        
         except Exception as e:
-            logger.error(f"Error searching memory: {str(e)}")
+            logger.error(f"Error searching memory: {e}")
             return []

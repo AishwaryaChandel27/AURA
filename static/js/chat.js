@@ -1,147 +1,179 @@
 /**
- * Chat functionality for AURA Research Assistant
+ * Chat JavaScript for AURA Research Assistant
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize chat
+    // Chat form submission
     const chatForm = document.getElementById('chatForm');
-    const messageInput = document.getElementById('messageInput');
-    const chatContainer = document.getElementById('chatContainer');
-    
     if (chatForm) {
         chatForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            sendChatMessage();
-        });
-    }
-    
-    /**
-     * Send a chat message
-     */
-    function sendChatMessage() {
-        const message = messageInput.value.trim();
-        
-        if (!message) {
-            return;
-        }
-        
-        // Add user message to chat
-        addMessageToChat('user', message);
-        
-        // Clear input
-        messageInput.value = '';
-        
-        // Disable input while waiting for response
-        messageInput.disabled = true;
-        document.querySelector('#chatForm button').disabled = true;
-        
-        // Add loading indicator
-        const loadingId = addLoadingMessage();
-        
-        // Send message to server
-        fetch(`/api/projects/${projectId}/chat`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: message
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Remove loading indicator
-            removeLoadingMessage(loadingId);
             
-            // Enable input
-            messageInput.disabled = false;
-            document.querySelector('#chatForm button').disabled = false;
+            const chatInput = document.getElementById('chatInput');
+            const message = chatInput.value.trim();
             
-            if (data.error) {
-                addMessageToChat('system', `Error: ${data.error}`);
-            } else {
-                const agentType = data.agent_type || 'general';
-                addMessageToChat('agent', data.message, agentType);
+            if (!message) {
+                return;
             }
             
-            // Focus input
-            messageInput.focus();
-        })
-        .catch(error => {
-            console.error('Error sending message:', error);
+            // Add user message to chat
+            addMessageToChat('user', message);
             
-            // Remove loading indicator
-            removeLoadingMessage(loadingId);
+            // Clear input
+            chatInput.value = '';
             
-            // Enable input
-            messageInput.disabled = false;
-            document.querySelector('#chatForm button').disabled = false;
+            // Show loading indicator
+            const loadingId = addLoadingMessage();
             
-            // Show error
-            addMessageToChat('system', 'Error sending message. Please try again.');
+            // Send message to server
+            fetch(`/api/projects/${projectId}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message
+                }),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Remove loading indicator
+                removeLoadingMessage(loadingId);
+                
+                // Add agent response to chat
+                addMessageToChat('agent', data.content, data.agent_type);
+                
+                // Scroll to bottom
+                scrollChatToBottom();
+            })
+            .catch((error) => {
+                console.error('Error sending message:', error);
+                
+                // Remove loading indicator
+                removeLoadingMessage(loadingId);
+                
+                // Add error message
+                addMessageToChat('agent', 'Sorry, there was an error processing your request. Please try again.', 'error');
+                
+                // Scroll to bottom
+                scrollChatToBottom();
+            });
             
-            // Focus input
-            messageInput.focus();
+            // Scroll to bottom
+            scrollChatToBottom();
         });
     }
     
-    /**
-     * Add a message to the chat
-     */
-    function addMessageToChat(role, content, agentType = null) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${role}-message`;
-        
-        // Add TensorFlow badge for TensorFlow agent
-        let messageContent = content;
-        if (role === 'agent' && agentType === 'tensorflow') {
-            messageContent = `<span class="tensorflow-badge small">TF</span> ${content}`;
-        }
-        
-        messageDiv.innerHTML = `
-            <div class="message-content">
-                ${messageContent}
-            </div>
-        `;
-        
-        chatContainer.appendChild(messageDiv);
-        
-        // Scroll to bottom
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+    // Scroll chat to bottom on load
+    scrollChatToBottom();
+});
+
+/**
+ * Add a message to the chat container
+ * 
+ * @param {string} role - 'user' or 'agent'
+ * @param {string} content - Message content
+ * @param {string} agentType - Agent type (for agent messages only)
+ */
+function addMessageToChat(role, content, agentType = '') {
+    const chatContainer = document.getElementById('chatContainer');
+    if (!chatContainer) return;
+    
+    // Create message element
+    const messageEl = document.createElement('div');
+    messageEl.className = `chat-message ${role}`;
+    
+    // Create message content
+    const contentEl = document.createElement('div');
+    contentEl.className = 'message-content';
+    contentEl.textContent = content;
+    messageEl.appendChild(contentEl);
+    
+    // Create message metadata
+    const metaEl = document.createElement('div');
+    metaEl.className = 'message-meta text-muted small';
+    
+    // Add agent type if available
+    if (role === 'agent' && agentType) {
+        const agentTypeEl = document.createElement('span');
+        agentTypeEl.className = 'agent-type';
+        agentTypeEl.textContent = agentType;
+        metaEl.appendChild(agentTypeEl);
+        metaEl.appendChild(document.createTextNode(' • '));
     }
     
-    /**
-     * Add a loading message to the chat
-     */
-    function addLoadingMessage() {
-        const loadingId = 'loading-' + Date.now();
-        const loadingDiv = document.createElement('div');
-        loadingDiv.className = 'message agent-message';
-        loadingDiv.id = loadingId;
-        loadingDiv.innerHTML = `
-            <div class="message-content">
-                <div class="spinner-border spinner-border-sm text-info" role="status">
+    // Add timestamp
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    metaEl.appendChild(document.createTextNode(timeStr));
+    
+    messageEl.appendChild(metaEl);
+    
+    // Add to chat container
+    chatContainer.appendChild(messageEl);
+}
+
+/**
+ * Add a loading message to the chat
+ * 
+ * @returns {string} ID of the loading message
+ */
+function addLoadingMessage() {
+    const chatContainer = document.getElementById('chatContainer');
+    if (!chatContainer) return '';
+    
+    // Generate a unique ID
+    const id = 'loading-' + Date.now();
+    
+    // Create message element
+    const messageEl = document.createElement('div');
+    messageEl.className = 'chat-message agent';
+    messageEl.id = id;
+    
+    // Create loading indicator
+    messageEl.innerHTML = `
+        <div class="message-content">
+            <div class="d-flex align-items-center">
+                <span class="me-2">Thinking</span>
+                <div class="spinner-grow spinner-grow-sm text-info" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
-                <span class="ms-2">Thinking...</span>
             </div>
-        `;
-        
-        chatContainer.appendChild(loadingDiv);
-        
-        // Scroll to bottom
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-        
-        return loadingId;
-    }
+        </div>
+    `;
     
-    /**
-     * Remove a loading message from the chat
-     */
-    function removeLoadingMessage(loadingId) {
-        const loadingDiv = document.getElementById(loadingId);
-        if (loadingDiv) {
-            loadingDiv.remove();
-        }
+    // Add to chat container
+    chatContainer.appendChild(messageEl);
+    
+    // Scroll to bottom
+    scrollChatToBottom();
+    
+    return id;
+}
+
+/**
+ * Remove a loading message from the chat
+ * 
+ * @param {string} id - ID of the loading message
+ */
+function removeLoadingMessage(id) {
+    const loadingEl = document.getElementById(id);
+    if (loadingEl) {
+        loadingEl.remove();
     }
-});
+}
+
+/**
+ * Scroll the chat container to the bottom
+ */
+function scrollChatToBottom() {
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+}

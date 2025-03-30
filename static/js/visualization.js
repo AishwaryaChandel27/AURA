@@ -1,191 +1,128 @@
 /**
- * Visualization functions for AURA Research Assistant
- * Uses Chart.js for data visualization
+ * Visualization JavaScript for AURA Research Assistant
  */
 
-/**
- * Render visualizations based on TensorFlow analysis data
- */
-function renderVisualization(visualizationData) {
-    if (!visualizationData) {
-        console.error('No visualization data provided');
-        return;
-    }
-    
-    // Get visualization container
-    const container = document.getElementById('visualizationContainer') || document.getElementById('tfAnalysisResults');
+// Scope visualization functions globally to make them accessible from templates
+window.renderVisualization = function(containerId, data) {
+    const container = document.getElementById(containerId);
     if (!container) {
-        console.error('Visualization container not found');
+        console.error('Visualization container not found:', containerId);
         return;
     }
     
     // Clear container
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
+    container.innerHTML = '';
+    
+    // Check if data is available
+    if (!data || !data.papers || data.papers.length === 0) {
+        container.innerHTML = '<div class="text-center py-5"><p class="text-muted">No data available for visualization</p></div>';
+        return;
     }
     
-    // Add visualization title
-    const title = document.createElement('h4');
-    title.className = 'mb-4';
-    title.textContent = 'TensorFlow Analysis Visualizations';
-    container.appendChild(title);
-    
-    // Create row for visualizations
-    const row = document.createElement('div');
-    row.className = 'row';
-    container.appendChild(row);
-    
-    // Topic visualization
-    if (visualizationData.topics) {
-        createTopicVisualization(visualizationData.topics, row);
-    }
-    
-    // Cluster visualization
-    if (visualizationData.clusters) {
-        createClusterVisualization(visualizationData.clusters, row);
-    }
-    
-    // Trend visualization
-    if (visualizationData.trends) {
-        createTrendVisualization(visualizationData.trends, row);
-    }
-}
-
-/**
- * Create topic visualization
- */
-function createTopicVisualization(topicData, container) {
-    // Create column
-    const col = document.createElement('div');
-    col.className = 'col-md-6 mb-4';
-    container.appendChild(col);
-    
-    // Create card
-    const card = document.createElement('div');
-    card.className = 'card h-100';
-    col.appendChild(card);
-    
-    // Create card header
-    const header = document.createElement('div');
-    header.className = 'card-header bg-info text-white';
-    header.innerHTML = '<h5 class="mb-0">Topic Distribution</h5>';
-    card.appendChild(header);
-    
-    // Create card body
-    const body = document.createElement('div');
-    body.className = 'card-body';
-    card.appendChild(body);
-    
-    // Create canvas for chart
-    const canvas = document.createElement('canvas');
-    canvas.id = 'topicChart';
-    body.appendChild(canvas);
-    
-    // Extract data for chart
-    const labels = topicData.map(topic => `Topic ${topic.id}`);
-    const data = topicData.map(topic => topic.weight);
-    const backgroundColors = generateColors(topicData.length);
-    
-    // Create chart
-    new Chart(canvas, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: backgroundColors,
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const topic = topicData[context.dataIndex];
-                            return `${context.label}: ${context.parsed.toFixed(2)}% - ${topic.keywords.join(', ')}`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-    
-    // Add topic keywords
-    const keywords = document.createElement('div');
-    keywords.className = 'mt-3';
-    keywords.innerHTML = '<h6>Key Topics:</h6><ul class="list-group list-group-flush">';
-    
-    topicData.forEach(topic => {
-        keywords.innerHTML += `
-            <li class="list-group-item bg-transparent">
-                <strong>Topic ${topic.id}:</strong> ${topic.keywords.join(', ')}
+    // Create tabbed interface for different visualizations
+    const tabsHtml = `
+        <ul class="nav nav-tabs mb-3" id="vizTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="network-tab" data-bs-toggle="tab" data-bs-target="#network-viz" type="button" role="tab">Network</button>
             </li>
-        `;
-    });
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="trends-tab" data-bs-toggle="tab" data-bs-target="#trends-viz" type="button" role="tab">Trends</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="topics-tab" data-bs-toggle="tab" data-bs-target="#topics-viz" type="button" role="tab">Topics</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="vizTabContent">
+            <div class="tab-pane fade show active" id="network-viz" role="tabpanel">
+                <canvas id="network-chart" height="350"></canvas>
+            </div>
+            <div class="tab-pane fade" id="trends-viz" role="tabpanel">
+                <canvas id="trend-chart" height="350"></canvas>
+            </div>
+            <div class="tab-pane fade" id="topics-viz" role="tabpanel">
+                <canvas id="topic-chart" height="350"></canvas>
+            </div>
+        </div>
+    `;
+    container.innerHTML = tabsHtml;
     
-    keywords.innerHTML += '</ul>';
-    body.appendChild(keywords);
-}
+    // Render network visualization
+    renderNetworkGraph('network-chart', data);
+    
+    // Render trends visualization
+    renderTrendChart('trend-chart', data);
+    
+    // Render topics visualization
+    renderTopicChart('topic-chart', data);
+};
 
-/**
- * Create cluster visualization
- */
-function createClusterVisualization(clusterData, container) {
-    // Create column
-    const col = document.createElement('div');
-    col.className = 'col-md-6 mb-4';
-    container.appendChild(col);
+function renderNetworkGraph(canvasId, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
     
-    // Create card
-    const card = document.createElement('div');
-    card.className = 'card h-100';
-    col.appendChild(card);
+    // Check if we have network data
+    if (!data.network || !data.network.nodes || data.network.nodes.length === 0) {
+        canvas.style.display = 'none';
+        canvas.parentNode.innerHTML = '<div class="text-center py-5"><p class="text-muted">No network data available</p></div>';
+        return;
+    }
     
-    // Create card header
-    const header = document.createElement('div');
-    header.className = 'card-header bg-info text-white';
-    header.innerHTML = '<h5 class="mb-0">Paper Clusters</h5>';
-    card.appendChild(header);
+    // Prepare data for network graph
+    const nodes = data.network.nodes.map(node => ({
+        x: node.x * canvas.width,
+        y: node.y * canvas.height,
+        r: 10,
+        label: node.label,
+        cluster: node.cluster || 0
+    }));
     
-    // Create card body
-    const body = document.createElement('div');
-    body.className = 'card-body';
-    card.appendChild(body);
+    const links = (data.network.links || []).map(link => {
+        const source = nodes.find(n => n.id === link.source);
+        const target = nodes.find(n => n.id === link.target);
+        return { source, target, value: link.value || 1 };
+    }).filter(link => link.source && link.target);
     
-    // Create canvas for chart
-    const canvas = document.createElement('canvas');
-    canvas.id = 'clusterChart';
-    body.appendChild(canvas);
+    // Create a scatter plot to represent the network
+    const clusterColors = [
+        'rgba(54, 162, 235, 0.8)',  // blue
+        'rgba(255, 99, 132, 0.8)',  // red
+        'rgba(75, 192, 192, 0.8)',  // green
+        'rgba(255, 159, 64, 0.8)',  // orange
+        'rgba(153, 102, 255, 0.8)', // purple
+        'rgba(255, 205, 86, 0.8)'   // yellow
+    ];
     
-    // Extract data for chart
     const datasets = [];
-    const backgroundColors = generateColors(clusterData.length);
     
-    clusterData.forEach((cluster, index) => {
-        const data = cluster.papers.map(paper => ({
-            x: paper.x,
-            y: paper.y,
-            r: 10, // bubble size
-            paper_id: paper.paper_id,
-            title: paper.title
-        }));
-        
+    // Group nodes by cluster
+    const clusterMap = nodes.reduce((acc, node) => {
+        const cluster = node.cluster || 0;
+        if (!acc[cluster]) acc[cluster] = [];
+        acc[cluster].push(node);
+        return acc;
+    }, {});
+    
+    // Create a dataset for each cluster
+    Object.keys(clusterMap).forEach((clusterId, index) => {
+        const clusterNodes = clusterMap[clusterId];
         datasets.push({
-            label: `Cluster ${index + 1}`,
-            data: data,
-            backgroundColor: backgroundColors[index],
+            label: `Cluster ${clusterId}`,
+            data: clusterNodes.map(node => ({
+                x: node.x,
+                y: node.y,
+                r: node.r,
+                node_id: node.id,
+                label: node.label
+            })),
+            backgroundColor: clusterColors[index % clusterColors.length],
+            borderColor: 'rgba(255, 255, 255, 0.5)',
             borderWidth: 1
         });
     });
     
-    // Create chart
-    new Chart(canvas, {
+    // Create the chart
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
         type: 'bubble',
         data: {
             datasets: datasets
@@ -195,98 +132,98 @@ function createClusterVisualization(clusterData, container) {
             maintainAspectRatio: false,
             scales: {
                 x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        display: false
-                    }
+                    display: false,
+                    min: 0,
+                    max: canvas.width
                 },
                 y: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        display: false
-                    }
+                    display: false,
+                    min: 0,
+                    max: canvas.height
                 }
             },
             plugins: {
                 legend: {
+                    display: true,
                     position: 'bottom'
                 },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return context.raw.title;
+                            const data = context.raw;
+                            return data.label || 'Paper';
                         }
                     }
                 }
             }
         }
     });
-    
-    // Add cluster descriptions
-    const descriptions = document.createElement('div');
-    descriptions.className = 'mt-3';
-    descriptions.innerHTML = '<h6>Cluster Information:</h6><ul class="list-group list-group-flush">';
-    
-    clusterData.forEach((cluster, index) => {
-        descriptions.innerHTML += `
-            <li class="list-group-item bg-transparent">
-                <strong>Cluster ${index + 1}:</strong> ${cluster.description || `Contains ${cluster.papers.length} papers`}
-            </li>
-        `;
-    });
-    
-    descriptions.innerHTML += '</ul>';
-    body.appendChild(descriptions);
 }
 
-/**
- * Create trend visualization
- */
-function createTrendVisualization(trendData, container) {
-    // Create column
-    const col = document.createElement('div');
-    col.className = 'col-md-12 mb-4';
-    container.appendChild(col);
+function renderTrendChart(canvasId, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
     
-    // Create card
-    const card = document.createElement('div');
-    card.className = 'card h-100';
-    col.appendChild(card);
+    // Check if we have trend data
+    if (!data.trends || !data.trends.publications || data.trends.publications.length === 0) {
+        canvas.style.display = 'none';
+        canvas.parentNode.innerHTML = '<div class="text-center py-5"><p class="text-muted">No trend data available</p></div>';
+        return;
+    }
     
-    // Create card header
-    const header = document.createElement('div');
-    header.className = 'card-header bg-info text-white';
-    header.innerHTML = '<h5 class="mb-0">Research Trends Over Time</h5>';
-    card.appendChild(header);
+    // Sort publications by year
+    const publications = [...data.trends.publications].sort((a, b) => a.year - b.year);
     
-    // Create card body
-    const body = document.createElement('div');
-    body.className = 'card-body';
-    card.appendChild(body);
+    // Prepare data for trend chart
+    const labels = publications.map(pub => pub.year.toString());
     
-    // Create canvas for chart
-    const canvas = document.createElement('canvas');
-    canvas.id = 'trendChart';
-    body.appendChild(canvas);
+    const datasets = [
+        {
+            label: 'Publications',
+            data: publications.map(pub => pub.count),
+            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderWidth: 2,
+            fill: true
+        }
+    ];
     
-    // Extract data for chart
-    const labels = trendData.labels;
-    const datasets = trendData.trends.map((trend, index) => {
-        return {
-            label: trend.name,
-            data: trend.values,
-            borderColor: generateColors(1)[0],
-            backgroundColor: 'transparent',
-            tension: 0.4
-        };
-    });
+    // Add topic trends if available
+    if (data.trends.topics && data.trends.topics.length > 0) {
+        data.trends.topics.forEach((topic, index) => {
+            const colors = [
+                'rgba(255, 99, 132, 1)',  // red
+                'rgba(75, 192, 192, 1)',  // green
+                'rgba(255, 159, 64, 1)',  // orange
+                'rgba(153, 102, 255, 1)', // purple
+                'rgba(255, 205, 86, 1)'   // yellow
+            ];
+            
+            // Find the topic data points that match our years
+            const topicData = {};
+            topic.data.forEach(d => {
+                topicData[d.year] = d.score;
+            });
+            
+            // Map to our labels, with null for missing years
+            const dataPoints = labels.map(year => topicData[parseInt(year)] || null);
+            
+            datasets.push({
+                label: topic.topic,
+                data: dataPoints,
+                borderColor: colors[index % colors.length],
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+                yAxisID: 'y1'
+            });
+        });
+    }
     
-    // Create chart
-    new Chart(canvas, {
+    // Create the chart
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
@@ -296,66 +233,111 @@ function createTrendVisualization(trendData, container) {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Year'
+                    }
+                },
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Frequency'
+                        text: 'Publication Count'
                     }
                 },
-                x: {
+                y1: {
+                    display: datasets.length > 1,
+                    position: 'right',
+                    beginAtZero: true,
+                    max: 1,
                     title: {
                         display: true,
-                        text: 'Time Period'
+                        text: 'Topic Relevance'
                     }
                 }
             },
             plugins: {
                 legend: {
+                    display: true,
                     position: 'bottom'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
                 }
             }
         }
     });
-    
-    // Add trend insights
-    if (trendData.insights && trendData.insights.length > 0) {
-        const insights = document.createElement('div');
-        insights.className = 'mt-3';
-        insights.innerHTML = '<h6>Trend Insights:</h6><ul>';
-        
-        trendData.insights.forEach(insight => {
-            insights.innerHTML += `<li>${insight}</li>`;
-        });
-        
-        insights.innerHTML += '</ul>';
-        body.appendChild(insights);
-    }
 }
 
-/**
- * Generate colors for visualizations
- */
-function generateColors(count) {
-    const colors = [
-        'rgba(54, 162, 235, 0.7)',   // blue
-        'rgba(255, 99, 132, 0.7)',   // red
-        'rgba(75, 192, 192, 0.7)',   // green
-        'rgba(255, 159, 64, 0.7)',   // orange
-        'rgba(153, 102, 255, 0.7)',  // purple
-        'rgba(255, 205, 86, 0.7)',   // yellow
-        'rgba(201, 203, 207, 0.7)'   // grey
-    ];
+function renderTopicChart(canvasId, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
     
-    // If more colors are needed than available, generate them
-    if (count > colors.length) {
-        for (let i = colors.length; i < count; i++) {
-            const r = Math.floor(Math.random() * 255);
-            const g = Math.floor(Math.random() * 255);
-            const b = Math.floor(Math.random() * 255);
-            colors.push(`rgba(${r}, ${g}, ${b}, 0.7)`);
-        }
+    // Check if we have topic data
+    if (!data.topics || data.topics.length === 0) {
+        canvas.style.display = 'none';
+        canvas.parentNode.innerHTML = '<div class="text-center py-5"><p class="text-muted">No topic data available</p></div>';
+        return;
     }
     
-    return colors.slice(0, count);
+    // Prepare data for topic chart
+    const topicLabels = data.topics.map(topic => topic.description || `Topic ${topic.id}`);
+    const topicData = data.topics.map(topic => topic.papers ? topic.papers.length : 0);
+    
+    // Create chart colors
+    const backgroundColors = [
+        'rgba(54, 162, 235, 0.8)',  // blue
+        'rgba(255, 99, 132, 0.8)',  // red
+        'rgba(75, 192, 192, 0.8)',  // green
+        'rgba(255, 159, 64, 0.8)',  // orange
+        'rgba(153, 102, 255, 0.8)', // purple
+        'rgba(255, 205, 86, 0.8)'   // yellow
+    ];
+    
+    // Create the chart
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: topicLabels,
+            datasets: [{
+                label: 'Papers per Topic',
+                data: topicData,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: 'rgba(75, 192, 192, 1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
 }

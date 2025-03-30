@@ -4,10 +4,12 @@ Coordinates the agent system and routes user queries to the appropriate agents
 """
 
 import logging
-import random
-from models import db, ResearchProject, Paper, Hypothesis, ExperimentDesign
+from typing import Dict, List, Any, Optional
 
-# Set up logging
+from services.openai_service import analyze_query, generate_hypothesis
+from agents.tensorflow_agent import TensorFlowAgent
+
+# Configure logging
 logger = logging.getLogger(__name__)
 
 class AgentController:
@@ -19,13 +21,10 @@ class AgentController:
         """Initialize AgentController with all required agents"""
         logger.info("Initializing AgentController")
         
-        # Import lazily to avoid circular dependencies
-        from agents.tensorflow_agent import TensorFlowAgent
-        
-        # Initialize agents
+        # Initialize the TensorFlow agent
         self.tensorflow_agent = TensorFlowAgent()
     
-    def process_research_query(self, project_id, query_text):
+    def process_research_query(self, project_id: int, query_text: str) -> Dict[str, Any]:
         """
         Process a research question through the agent workflow
         
@@ -38,88 +37,28 @@ class AgentController:
         """
         logger.info(f"Processing research query for project {project_id}: {query_text}")
         
-        # Classify query type
-        query_type, agent_type = self._classify_query(query_text)
-        
-        # Process based on query type
-        if query_type == "tensorflow_analysis":
-            # Get papers for the project
-            papers = Paper.query.filter_by(project_id=project_id).all()
+        try:
+            # Analyze the query to determine its type and relevance
+            query_analysis = self._classify_query(query_text)
             
-            # Convert to format expected by TensorFlow agent
-            paper_dicts = []
-            for paper in papers:
-                paper_dict = {
-                    'id': paper.id,
-                    'title': paper.title,
-                    'abstract': paper.abstract,
-                    'authors': paper.get_authors() if hasattr(paper, 'get_authors') else []
-                }
-                
-                # Add summary if available
-                if paper.summary:
-                    paper_dict['summary'] = paper.summary.summary_text
-                    paper_dict['key_findings'] = paper.summary.get_key_findings() if hasattr(paper.summary, 'get_key_findings') else []
-                
-                paper_dicts.append(paper_dict)
-            
-            # Run TensorFlow analysis
-            results = self.tensorflow_agent.analyze_papers_with_tf(paper_dicts)
-            
-            # Return with agent info
-            return {
-                'message': results.get('message', 'TensorFlow analysis completed'),
-                'agent_type': 'tensorflow',
-                'analysis_results': results
+            # Placeholder for search results
+            # In a full implementation, this would connect to actual search services
+            results = {
+                "query": query_text,
+                "query_analysis": query_analysis,
+                "results": self._generate_sample_papers(query_text)
             }
+            
+            return results
         
-        elif query_type == "research_gaps":
-            # Get papers for the project
-            papers = Paper.query.filter_by(project_id=project_id).all()
-            
-            # Convert to format expected by TensorFlow agent
-            paper_dicts = []
-            for paper in papers:
-                paper_dict = {
-                    'id': paper.id,
-                    'title': paper.title,
-                    'abstract': paper.abstract,
-                    'authors': paper.get_authors() if hasattr(paper, 'get_authors') else []
-                }
-                
-                # Add summary if available
-                if paper.summary:
-                    paper_dict['summary'] = paper.summary.summary_text
-                    paper_dict['key_findings'] = paper.summary.get_key_findings() if hasattr(paper.summary, 'get_key_findings') else []
-                
-                paper_dicts.append(paper_dict)
-            
-            # Identify research gaps
-            results = self.tensorflow_agent.identify_research_gaps(paper_dicts)
-            
-            # Format response
-            message = "Research gap analysis completed. "
-            if results.get('potential_gaps'):
-                message += f"Found {len(results['potential_gaps'])} potential research gaps."
-            else:
-                message += "No clear research gaps identified."
-            
-            # Return with agent info
+        except Exception as e:
+            logger.error(f"Error processing research query: {e}")
             return {
-                'message': message,
-                'agent_type': 'tensorflow',
-                'gap_analysis': results
-            }
-        
-        else:
-            # General response for other query types
-            return {
-                'message': f"I've received your query: '{query_text}'. To analyze research papers, try asking about TensorFlow analysis or research gaps.",
-                'agent_type': 'general',
-                'query_type': query_type
+                "error": f"Error processing query: {str(e)}",
+                "results": []
             }
     
-    def handle_chat_query(self, project_id, query_text):
+    def handle_chat_query(self, project_id: int, query_text: str) -> Dict[str, Any]:
         """
         Handle a chat query by routing to the appropriate agent
         
@@ -132,45 +71,63 @@ class AgentController:
         """
         logger.info(f"Handling chat query for project {project_id}: {query_text}")
         
-        # Classify query type
-        query_type, agent_type = self._classify_query(query_text)
-        
-        # Respond based on agent type
-        if agent_type == "tensorflow":
-            # For TensorFlow-related queries
-            response = {
-                'message': f"I'll analyze that using TensorFlow! '{query_text}'. To run a full analysis, use the TensorFlow Analysis button.",
-                'agent_type': 'tensorflow',
-                'query_type': query_type
+        try:
+            # Analyze the query
+            query_analysis = self._classify_query(query_text)
+            
+            # Determine the appropriate agent based on the analysis
+            agent_type = query_analysis.get("agent_type", "general")
+            
+            # Route to TensorFlow agent if relevant
+            if agent_type == "tensorflow" or query_analysis.get("relevance_score", 0) > 0.5:
+                # Use the TensorFlow agent as the primary agent for relevant queries
+                return {
+                    "agent_type": "tensorflow",
+                    "content": f"TensorFlow Agent: This would analyze your query about '{query_text}' using TensorFlow approaches. The analysis indicates this is a {query_analysis.get('query_type', 'general')} type query with TensorFlow relevance of {query_analysis.get('relevance_score', 0)}."
+                }
+            
+            # Default response for other query types
+            return {
+                "agent_type": "general",
+                "content": f"I understand you're asking about '{query_text}'. To provide a more specific answer, I'd need to integrate with the appropriate systems. The analysis indicates this is a {query_analysis.get('query_type', 'general')} type query."
             }
         
-        elif agent_type == "paper":
-            # For paper-related queries
-            response = {
-                'message': f"I can help with paper analysis. To add papers to your project, use the 'Add Paper' button or search for papers using the search bar.",
-                'agent_type': 'paper',
-                'query_type': query_type
+        except Exception as e:
+            logger.error(f"Error handling chat query: {e}")
+            return {
+                "agent_type": "error",
+                "content": "I apologize, but I encountered an error while processing your query. Please try again with a different question."
             }
-        
-        elif agent_type == "hypothesis":
-            # For hypothesis-related queries
-            response = {
-                'message': f"I can generate research hypotheses based on the papers in your project. Try adding some papers first, then run a TensorFlow analysis to get insights.",
-                'agent_type': 'hypothesis',
-                'query_type': query_type
-            }
-        
-        else:
-            # General response
-            response = {
-                'message': f"I'm AURA, your AI research assistant. I can help with paper analysis, TensorFlow-based insights, and research gap identification. What would you like to explore?",
-                'agent_type': 'general',
-                'query_type': query_type
-            }
-        
-        return response
     
-    def _classify_query(self, query_text):
+    def generate_hypothesis(self, research_question: str, papers: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Generate a hypothesis based on a research question and papers
+        
+        Args:
+            research_question (str): The research question
+            papers (list): List of papers
+            
+        Returns:
+            dict: Generated hypothesis
+        """
+        logger.info(f"Generating hypothesis for: {research_question}")
+        
+        try:
+            # Use the OpenAI service to generate a hypothesis
+            hypothesis = generate_hypothesis(research_question, papers)
+            
+            return hypothesis
+        
+        except Exception as e:
+            logger.error(f"Error generating hypothesis: {e}")
+            return {
+                "hypothesis_text": f"Unable to generate hypothesis for: {research_question}",
+                "reasoning": "An error occurred during hypothesis generation.",
+                "confidence_score": 0.0,
+                "supporting_evidence": {}
+            }
+    
+    def _classify_query(self, query_text: str) -> Dict[str, Any]:
         """
         Classify the type of query to route to the appropriate agent
         
@@ -178,26 +135,68 @@ class AgentController:
             query_text (str): The user's query text
             
         Returns:
-            tuple: Query type and agent type
+            dict: Query type and agent type
         """
-        # Simple keyword-based classification
-        query_text_lower = query_text.lower()
+        logger.info(f"Classifying query: {query_text}")
         
-        # TensorFlow-related queries
-        if any(kw in query_text_lower for kw in ['tensorflow', 'machine learning', 'deep learning', 'analyze', 'analysis']):
-            return "tensorflow_analysis", "tensorflow"
+        try:
+            # Use OpenAI to analyze the query
+            analysis = analyze_query(query_text)
+            
+            # Determine the agent type based on the analysis
+            if analysis.get("relevance_score", 0) > 0.7:
+                analysis["agent_type"] = "tensorflow"
+            elif analysis.get("query_type") in ["paper_search", "summarization"]:
+                analysis["agent_type"] = "retrieval"
+            elif analysis.get("query_type") == "hypothesis":
+                analysis["agent_type"] = "hypothesis"
+            elif analysis.get("query_type") == "experiment":
+                analysis["agent_type"] = "experiment"
+            else:
+                analysis["agent_type"] = "general"
+            
+            return analysis
         
-        # Research gap queries
-        elif any(kw in query_text_lower for kw in ['gap', 'missing', 'opportunity', 'future research']):
-            return "research_gaps", "tensorflow"
+        except Exception as e:
+            logger.error(f"Error classifying query: {e}")
+            return {
+                "query_type": "general",
+                "agent_type": "general",
+                "relevance_score": 0.0
+            }
+    
+    def _generate_sample_papers(self, query_text: str) -> List[Dict[str, Any]]:
+        """
+        Generate sample papers for testing (will be replaced with actual API calls)
         
-        # Paper-related queries
-        elif any(kw in query_text_lower for kw in ['paper', 'article', 'publication', 'read', 'download']):
-            return "paper_info", "paper"
+        Args:
+            query_text (str): The search query
+            
+        Returns:
+            list: List of paper dictionaries
+        """
+        # This is a placeholder that would be replaced with actual search API calls
+        keywords = query_text.lower().split()
+        is_tensorflow_related = any(kw in ["tensorflow", "neural", "deep", "learning", "machine"] for kw in keywords)
         
-        # Hypothesis-related queries
-        elif any(kw in query_text_lower for kw in ['hypothesis', 'theory', 'idea', 'propose']):
-            return "hypothesis", "hypothesis"
+        papers = [
+            {
+                "title": "TensorFlow: A System for Large-Scale Machine Learning",
+                "authors": ["Martín Abadi", "Paul Barham", "Jianmin Chen", "Zhifeng Chen"],
+                "abstract": "TensorFlow is an open source software library for numerical computation using data flow graphs. Nodes in the graph represent mathematical operations, while the graph edges represent the multidimensional data arrays (tensors) that flow between them.",
+                "url": "https://example.com/tensorflow-paper",
+                "source": "simulated"
+            }
+        ]
         
-        # Default to general query
-        return "general", "general"
+        # Add a TensorFlow-specific paper if the query is related
+        if is_tensorflow_related:
+            papers.append({
+                "title": "TensorFlow: Latest Advances and Applications in Deep Learning",
+                "authors": ["Research Team"],
+                "abstract": "This paper discusses the latest advances in TensorFlow and its applications in deep learning research across multiple domains including computer vision, natural language processing, and scientific research.",
+                "url": "https://example.com/tensorflow-advances",
+                "source": "simulated"
+            })
+        
+        return papers
