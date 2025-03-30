@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if active_tab == 'paper_details' %}Paper Details{% elif active_tab == 'hypothesis_details' %}Hypothesis Details{% elif active_tab == 'experiment_details' %}Experiment Details{% else %}Research Results{% endif %} | AURA</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header py-3">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="app-title h4 mb-0">
+                    <a href="{{ url_for('main.index') }}" class="text-decoration-none">
+                        <i class="fas fa-brain me-2"></i>AURA
+                    </a>
+                </h1>
+                <div>
+                    <a href="{{ url_for('main.project', project_id=project.id) }}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-arrow-left me-1"></i> Back to Project
+                    </a>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-info dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-download me-1"></i> Export
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" id="export-pdf"><i class="far fa-file-pdf me-2"></i>Export as PDF</button></li>
+                            <li><button class="dropdown-item" id="export-json"><i class="far fa-file-code me-2"></i>Export as JSON</button></li>
+                            <li><button class="dropdown-item" id="export-csv"><i class="far fa-file-excel me-2"></i>Export Papers as CSV</button></li>
+                            <li><button class="dropdown-item" id="export-bibtex"><i class="far fa-file-alt me-2"></i>Export BibTeX</button></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Project Header -->
+    <div class="py-4 bg-dark border-bottom border-secondary">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="h2 mb-1">{{ project.title }}</h1>
+                    <p class="text-muted mb-0">
+                        <i class="far fa-calendar-alt me-1"></i> Created: {{ project.created_at.strftime('%Y-%m-%d') }}
+                    </p>
+                </div>
+                <div class="col-md-4 mt-3 mt-md-0 text-md-end">
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('main.papers', project_id=project.id) }}" class="btn btn-outline-light {% if active_tab == 'papers' %}active{% endif %}">
+                            <i class="fas fa-book me-1"></i> Papers
+                        </a>
+                        <a href="{{ url_for('main.hypotheses', project_id=project.id) }}" class="btn btn-outline-light {% if active_tab == 'hypotheses' %}active{% endif %}">
+                            <i class="fas fa-lightbulb me-1"></i> Hypotheses
+                        </a>
+                        <a href="{{ url_for('main.experiments', project_id=project.id) }}" class="btn btn-outline-light {% if active_tab == 'experiments' %}active{% endif %}">
+                            <i class="fas fa-flask me-1"></i> Experiments
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content py-4">
+        <div class="container">
+            <!-- Papers List View -->
+            {% if active_tab == 'papers' %}
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-book me-2"></i> Research Papers
+                            </h5>
+                            <div class="input-group" style="max-width: 300px;">
+                                <input type="text" class="form-control" id="paperSearch" placeholder="Search papers...">
+                                <button class="btn btn-outline-secondary" type="button">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if papers and papers|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>Authors</th>
+                                            <th>Source</th>
+                                            <th>Published</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for paper in papers %}
+                                        <tr>
+                                            <td>
+                                                <a href="{{ url_for('main.paper_details', paper_id=paper.id) }}" class="paper-title">
+                                                    {{ paper.title }}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <span class="paper-authors">
+                                                    {% if paper.authors %}
+                                                        {{ paper.get_authors()|join(', ') }}
+                                                    {% else %}
+                                                        Unknown
+                                                    {% endif %}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="paper-source source-{{ paper.source }}">{{ paper.source }}</span>
+                                            </td>
+                                            <td>
+                                                {% if paper.published_date %}
+                                                    {{ paper.published_date.strftime('%Y-%m-%d') }}
+                                                {% else %}
+                                                    Unknown
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('main.paper_details', paper_id=paper.id) }}" class="btn btn-outline-info">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </a>
+                                                    {% if paper.url %}
+                                                    <a href="{{ paper.url }}" target="_blank" class="btn btn-outline-secondary">
+                                                        <i class="fas fa-external-link-alt"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    {% if not paper.summary %}
+                                                    <button class="btn btn-outline-primary summarize-btn" data-paper-id="{{ paper.id }}">
+                                                        <i class="fas fa-file-alt"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <div class="mb-4">
+                                    <i class="fas fa-search text-info" style="font-size: 3rem;"></i>
+                                </div>
+                                <h4 class="mb-3">No Papers Found</h4>
+                                <p class="text-muted mb-4">Start your research process to retrieve relevant papers.</p>
+                                <a href="{{ url_for('main.project', project_id=project.id) }}" class="btn btn-info">
+                                    <i class="fas fa-search me-2"></i> Start Research
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Hypotheses List View -->
+            {% if active_tab == 'hypotheses' %}
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-lightbulb me-2"></i> Research Hypotheses
+                            </h5>
+                            <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#generateHypothesisModal">
+                                <i class="fas fa-plus me-1"></i> Generate New Hypothesis
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            {% if hypotheses and hypotheses|length > 0 %}
+                            <div class="list-group">
+                                {% for hypothesis in hypotheses %}
+                                <div class="list-group-item list-group-item-action flex-column align-items-start hypothesis-list-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1">Hypothesis {{ hypothesis.id }}</h5>
+                                        <small>{{ hypothesis.created_at.strftime('%Y-%m-%d') }}</small>
+                                    </div>
+                                    <p class="mb-2">{{ hypothesis.hypothesis_text }}</p>
+                                    <div class="d-flex align-items-center mb-1 hypothesis-confidence">
+                                        <span class="confidence-label">Confidence:</span>
+                                        <div class="progress flex-grow-1" style="height: 8px;">
+                                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ (hypothesis.confidence_score * 100)|int }}%;" 
+                                                aria-valuenow="{{ (hypothesis.confidence_score * 100)|int }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <span class="confidence-value ms-2">{{ (hypothesis.confidence_score * 100)|int }}%</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <a href="{{ url_for('main.hypothesis_details', hypothesis_id=hypothesis.id) }}" class="btn btn-sm btn-outline-info">Details</a>
+                                        <button class="btn btn-sm btn-outline-primary design-experiment-btn" data-hypothesis-id="{{ hypothesis.id }}">
+                                            <i class="fas fa-flask me-1"></i> Design Experiment
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <div class="mb-4">
+                                    <i class="fas fa-lightbulb text-warning" style="font-size: 3rem;"></i>
+                                </div>
+                                <h4 class="mb-3">No Hypotheses Generated</h4>
+                                <p class="text-muted mb-4">After retrieving papers, generate hypotheses based on your research.</p>
+                                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#generateHypothesisModal">
+                                    <i class="fas fa-plus me-2"></i> Generate Hypothesis
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Experiments List View -->
+            {% if active_tab == 'experiments' %}
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-flask me-2"></i> Experiment Designs
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if experiments and experiments|length > 0 %}
+                            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                                {% for experiment in experiments %}
+                                <div class="col">
+                                    <div class="card h-100">
+                                        <div class="card-header">
+                                            <h5 class="card-title mb-0">{{ experiment.title }}</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="card-text">{{ experiment.methodology|truncate(150) }}</p>
+                                            <p class="card-text"><small class="text-muted">For Hypothesis #{{ experiment.hypothesis_id }}</small></p>
+                                        </div>
+                                        <div class="card-footer">
+                                            <a href="{{ url_for('main.experiment_details', experiment_id=experiment.id) }}" class="btn btn-sm btn-outline-info w-100">View Details</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <div class="mb-4">
+                                    <i class="fas fa-flask text-danger" style="font-size: 3rem;"></i>
+                                </div>
+                                <h4 class="mb-3">No Experiments Designed</h4>
+                                <p class="text-muted mb-4">Design experiments to test your generated hypotheses.</p>
+                                <a href="{{ url_for('main.hypotheses', project_id=project.id) }}" class="btn btn-danger">
+                                    <i class="fas fa-lightbulb me-2"></i> View Hypotheses
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Paper Details View -->
+            {% if active_tab == 'paper_details' and paper %}
+            <div class="row">
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-book me-2"></i> Paper Details
+                            </h5>
+                            <div>
+                                {% if paper.url %}
+                                <a href="{{ paper.url }}" target="_blank" class="btn btn-sm btn-outline-secondary me-2">
+                                    <i class="fas fa-external-link-alt me-1"></i> View Original
+                                </a>
+                                {% endif %}
+                                {% if paper.pdf_url %}
+                                <a href="{{ paper.pdf_url }}" target="_blank" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-file-pdf me-1"></i> PDF
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h4 class="card-title">{{ paper.title }}</h4>
+                            <p class="card-text text-muted">
+                                <strong>Authors:</strong> 
+                                {% if paper.authors %}
+                                    {{ paper.authors|join(', ') }}
+                                {% else %}
+                                    Unknown
+                                {% endif %}
+                            </p>
+                            <p class="card-text text-muted">
+                                <strong>Source:</strong> <span class="paper-source source-{{ paper.source }}">{{ paper.source }}</span>
+                                {% if paper.published_date %}
+                                <span class="mx-2">|</span>
+                                <strong>Published:</strong> {{ paper.published_date.strftime('%Y-%m-%d') }}
+                                {% endif %}
+                                {% if paper.metadata and paper.metadata.citation_count %}
+                                <span class="mx-2">|</span>
+                                <strong>Citations:</strong> {{ paper.metadata.citation_count }}
+                                {% endif %}
+                            </p>
+                            
+                            <div class="card bg-dark mt-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Abstract</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">{{ paper.abstract }}</p>
+                                </div>
+                            </div>
+                            
+                            {% if summary %}
+                            <div class="card bg-dark mt-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Summary</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">{{ summary.text }}</p>
+                                    
+                                    {% if summary.key_findings and summary.key_findings|length > 0 %}
+                                    <div class="mt-3">
+                                        <h6>Key Findings</h6>
+                                        <ul>
+                                            {% for finding in summary.key_findings %}
+                                            <li>{{ finding }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-3 mt-3">
+                                <button id="generate-summary-btn" class="btn btn-info" data-paper-id="{{ paper.id }}">
+                                    <i class="fas fa-file-alt me-2"></i> Generate Summary
+                                </button>
+                            </div>
+                            {% endif %}
+                            
+                            {% if paper.metadata %}
+                            <div class="card bg-dark mt-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Metadata</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {% if paper.metadata.venue %}
+                                        <div class="col-md-4">
+                                            <p><strong>Venue:</strong> {{ paper.metadata.venue }}</p>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if paper.metadata.categories %}
+                                        <div class="col-md-8">
+                                            <p><strong>Categories:</strong>
+                                                {% for category in paper.metadata.categories %}
+                                                <span class="badge bg-secondary me-1">{{ category }}</span>
+                                                {% endfor %}
+                                            </p>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Hypothesis Details View -->
+            {% if active_tab == 'hypothesis_details' and hypothesis %}
+            <div class="row">
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-lightbulb me-2"></i> Hypothesis Details
+                            </h5>
+                            <button class="btn btn-sm btn-outline-primary design-experiment-btn" data-hypothesis-id="{{ hypothesis.id }}">
+                                <i class="fas fa-flask me-1"></i> Design Experiment
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="mb-0">Hypothesis</h4>
+                                <div class="hypothesis-confidence">
+                                    <span class="confidence-label">Confidence:</span>
+                                    <div class="progress" style="width: 150px; height: 8px;">
+                                        <div class="progress-bar bg-info" role="progressbar" style="width: {{ (hypothesis.confidence_score * 100)|int }}%;" 
+                                            aria-valuenow="{{ (hypothesis.confidence_score * 100)|int }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    <span class="confidence-value ms-2">{{ (hypothesis.confidence_score * 100)|int }}%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-info" role="alert">
+                                {{ hypothesis.text }}
+                            </div>
+                            
+                            {% if hypothesis.reasoning %}
+                            <div class="card bg-dark mt-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Reasoning</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">{{ hypothesis.reasoning }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if hypothesis.supporting_evidence and hypothesis.supporting_evidence|length > 0 %}
+                            <div class="card bg-dark mt-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Supporting Evidence</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% for paper_id, evidence in hypothesis.supporting_evidence.items() %}
+                                    <div class="evidence-item mb-3">
+                                        <h6>{{ paper_id }}</h6>
+                                        <blockquote class="blockquote">
+                                            <p class="mb-0">{{ evidence }}</p>
+                                        </blockquote>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                {% if experiments and experiments|length > 0 %}
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-flask me-2"></i> Related Experiments
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="accordion" id="experimentsAccordion">
+                                {% for experiment in experiments %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="heading{{ experiment.id }}">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ experiment.id }}" aria-expanded="false" aria-controls="collapse{{ experiment.id }}">
+                                            {{ experiment.title }}
+                                        </button>
+                                    </h2>
+                                    <div id="collapse{{ experiment.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ experiment.id }}" data-bs-parent="#experimentsAccordion">
+                                        <div class="accordion-body">
+                                            <h6>Methodology</h6>
+                                            <p>{{ experiment.methodology }}</p>
+                                            
+                                            {% if experiment.variables %}
+                                            <h6>Variables</h6>
+                                            <div class="row">
+                                                {% if experiment.variables.independent %}
+                                                <div class="col-md-4">
+                                                    <p><strong>Independent:</strong></p>
+                                                    <ul>
+                                                        {% for var in experiment.variables.independent %}
+                                                        <li>{{ var }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                {% if experiment.variables.dependent %}
+                                                <div class="col-md-4">
+                                                    <p><strong>Dependent:</strong></p>
+                                                    <ul>
+                                                        {% for var in experiment.variables.dependent %}
+                                                        <li>{{ var }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                {% if experiment.variables.controlled %}
+                                                <div class="col-md-4">
+                                                    <p><strong>Controlled:</strong></p>
+                                                    <ul>
+                                                        {% for var in experiment.variables.controlled %}
+                                                        <li>{{ var }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <div class="mt-3">
+                                                <a href="{{ url_for('main.experiment_details', experiment_id=experiment.id) }}" class="btn btn-sm btn-outline-info">
+                                                    View Full Details
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Experiment Details View -->
+            {% if active_tab == 'experiment_details' and experiment %}
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-flask me-2"></i> Experiment Design Details
+                            </h5>
+                            <div>
+                                <a href="{{ url_for('main.hypothesis_details', hypothesis_id=hypothesis.id) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="fas fa-lightbulb me-1"></i> View Hypothesis
+                                </a>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h4 class="card-title">{{ experiment.title }}</h4>
+                            <div class="alert alert-warning mb-4" role="alert">
+                                <strong>Testing Hypothesis:</strong> {{ hypothesis.text }}
+                            </div>
+                            
+                            <div class="experiment-design">
+                                <div class="experiment-section">
+                                    <h5><i class="fas fa-cogs me-2"></i>Methodology</h5>
+                                    <p>{{ experiment.methodology }}</p>
+                                </div>
+                                
+                                {% if experiment.variables %}
+                                <div class="experiment-section">
+                                    <h5><i class="fas fa-sliders-h me-2"></i>Variables</h5>
+                                    <div class="row">
+                                        {% if experiment.variables.independent %}
+                                        <div class="col-md-4">
+                                            <div class="card bg-dark">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0">Independent Variables</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush bg-transparent">
+                                                        {% for var in experiment.variables.independent %}
+                                                        <li class="list-group-item bg-transparent">{{ var }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if experiment.variables.dependent %}
+                                        <div class="col-md-4">
+                                            <div class="card bg-dark">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0">Dependent Variables</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush bg-transparent">
+                                                        {% for var in experiment.variables.dependent %}
+                                                        <li class="list-group-item bg-transparent">{{ var }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if experiment.variables.controlled %}
+                                        <div class="col-md-4">
+                                            <div class="card bg-dark">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0">Controlled Variables</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <ul class="list-group list-group-flush bg-transparent">
+                                                        {% for var in experiment.variables.controlled %}
+                                                        <li class="list-group-item bg-transparent">{{ var }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if experiment.controls %}
+                                <div class="experiment-section">
+                                    <h5><i class="fas fa-balance-scale me-2"></i>Controls</h5>
+                                    <p>{{ experiment.controls }}</p>
+                                </div>
+                                {% endif %}
+                                
+                                {% if experiment.expected_outcomes %}
+                                <div class="experiment-section">
+                                    <h5><i class="fas fa-chart-line me-2"></i>Expected Outcomes</h5>
+                                    <p>{{ experiment.expected_outcomes }}</p>
+                                </div>
+                                {% endif %}
+                                
+                                {% if experiment.limitations %}
+                                <div class="experiment-section">
+                                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Limitations</h5>
+                                    <p>{{ experiment.limitations }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Generate Hypothesis Modal -->
+    <div class="modal fade" id="generateHypothesisModal" tabindex="-1" aria-labelledby="generateHypothesisModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="generateHypothesisModalLabel">Generate Hypothesis</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="hypothesisForm">
+                        <div class="mb-3">
+                            <label for="researchQuestion" class="form-label">Research Question</label>
+                            <textarea class="form-control" id="researchQuestion" rows="3" placeholder="Enter your research question to guide hypothesis generation..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="generateHypothesisBtn" class="btn btn-warning">Generate Hypothesis</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="text-info">AURA</h5>
+                    <p class="text-muted">AI-Driven Autonomous Research Assistant</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted mb-0">
+                        <small>Powered by AI & Academic APIs</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Main JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <!-- Export JS -->
+    <script src="{{ url_for('static', filename='js/export.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle paper search
+            const paperSearch = document.getElementById('paperSearch');
+            if (paperSearch) {
+                paperSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const paperRows = document.querySelectorAll('tbody tr');
+                    
+                    paperRows.forEach(row => {
+                        const title = row.querySelector('.paper-title').textContent.toLowerCase();
+                        const authors = row.querySelector('.paper-authors').textContent.toLowerCase();
+                        const show = title.includes(searchTerm) || authors.includes(searchTerm);
+                        row.style.display = show ? '' : 'none';
+                    });
+                });
+            }
+            
+            // Handle generate summary button
+            const generateSummaryBtn = document.getElementById('generate-summary-btn');
+            if (generateSummaryBtn) {
+                generateSummaryBtn.addEventListener('click', async function() {
+                    const paperId = this.dataset.paperId;
+                    
+                    try {
+                        // Show loading state
+                        this.disabled = true;
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+                        
+                        // Call API to generate summary
+                        const response = await fetch(`/api/summarize/${paperId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        }).then(handleFetchErrors);
+                        
+                        // Show success and reload page
+                        showToast('Summary generated successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                        
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast(`Error: ${error.message}`, 'danger');
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fas fa-file-alt me-2"></i> Generate Summary';
+                    }
+                });
+            }
+            
+            // Handle design experiment buttons
+            const designExperimentBtns = document.querySelectorAll('.design-experiment-btn');
+            designExperimentBtns.forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const hypothesisId = this.dataset.hypothesisId;
+                    
+                    try {
+                        // Show loading state
+                        const originalText = this.innerHTML;
+                        this.disabled = true;
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Designing...';
+                        
+                        // Call API to design experiment
+                        const response = await fetch(`/api/design-experiment/${hypothesisId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        }).then(handleFetchErrors);
+                        
+                        // Show success
+                        showToast('Experiment designed successfully!', 'success');
+                        
+                        // Navigate to experiment details page
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                        
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast(`Error: ${error.message}`, 'danger');
+                        this.disabled = false;
+                        this.innerHTML = originalText;
+                    }
+                });
+            });
+            
+            // Handle generate hypothesis form
+            const generateHypothesisBtn = document.getElementById('generateHypothesisBtn');
+            if (generateHypothesisBtn) {
+                generateHypothesisBtn.addEventListener('click', async function() {
+                    const researchQuestion = document.getElementById('researchQuestion').value.trim();
+                    
+                    if (!researchQuestion) {
+                        showToast('Please enter a research question', 'warning');
+                        return;
+                    }
+                    
+                    try {
+                        // Show loading state
+                        this.disabled = true;
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+                        
+                        // Call API to generate hypothesis
+                        const response = await fetch(`/api/generate-hypothesis/{{ project.id }}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                research_question: researchQuestion
+                            })
+                        }).then(handleFetchErrors);
+                        
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('generateHypothesisModal'));
+                        modal.hide();
+                        
+                        // Show success
+                        showToast('Hypotheses generated successfully!', 'success');
+                        
+                        // Reload page
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                        
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast(`Error: ${error.message}`, 'danger');
+                        this.disabled = false;
+                        this.innerHTML = 'Generate Hypothesis';
+                    }
+                });
+            }
+            
+            // Handle summarize buttons in paper list
+            const summarizeBtns = document.querySelectorAll('.summarize-btn');
+            summarizeBtns.forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const paperId = this.dataset.paperId;
+                    
+                    try {
+                        // Show loading state
+                        this.disabled = true;
+                        const originalHtml = this.innerHTML;
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+                        
+                        // Call API to summarize paper
+                        const response = await fetch(`/api/summarize/${paperId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        }).then(handleFetchErrors);
+                        
+                        // Show success
+                        showToast('Paper summarized successfully!', 'success');
+                        
+                        // Navigate to paper details page
+                        setTimeout(() => {
+                            window.location.href = `/paper/${paperId}`;
+                        }, 1000);
+                        
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast(`Error: ${error.message}`, 'danger');
+                        this.disabled = false;
+                        this.innerHTML = originalHtml;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
