@@ -8,183 +8,782 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <style>
+        .hero-section {
+            padding: 5rem 0;
+            text-align: center;
+        }
+        
+        .feature-card {
+            background-color: rgba(33, 37, 41, 0.8);
+            border-radius: 1rem;
+            padding: 2rem;
+            height: 100%;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--bs-info);
+        }
+        
+        .section-heading {
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background-color: var(--bs-info);
+            border-color: var(--bs-info);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--bs-info-dark);
+            border-color: var(--bs-info-dark);
+        }
+        
+        .search-form {
+            background-color: rgba(33, 37, 41, 0.8);
+            padding: 2rem;
+            border-radius: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .results-container {
+            margin-top: 3rem;
+        }
+        
+        .paper-card {
+            margin-bottom: 1.5rem;
+        }
+        
+        .paper-meta {
+            font-size: 0.85rem;
+            color: var(--bs-secondary);
+        }
+        
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: rgba(33, 37, 41, 0.8);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .chat-message {
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+        }
+        
+        .user-message {
+            background-color: rgba(13, 110, 253, 0.2);
+            margin-left: 2rem;
+        }
+        
+        .agent-message {
+            background-color: rgba(25, 135, 84, 0.2);
+            margin-right: 2rem;
+        }
+        
+        footer {
+            margin-top: 4rem;
+            padding: 2rem 0;
+            background-color: rgba(33, 37, 41, 0.8);
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
-    <header class="site-header">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <nav class="navbar navbar-expand-lg">
-                <div class="container-fluid">
-                    <a class="navbar-brand" href="{{ url_for('main.index') }}">
-                        <span class="text-aura-primary">AURA</span> Research Assistant
-                    </a>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav ms-auto">
-                            <li class="nav-item">
-                                <a class="nav-link active" href="{{ url_for('main.index') }}">Home</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#newProjectModal">New Project</a>
-                            </li>
-                        </ul>
+            <a class="navbar-brand" href="/">
+                <span class="text-info">AURA</span> Research Assistant
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#research">Research</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#textAnalysis">Text Analysis</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#chat">AI Chat</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section bg-dark text-white">
+        <div class="container">
+            <h1 class="display-4">AI-Powered Research Assistant</h1>
+            <p class="lead mb-4">
+                Simplify your research process with AURA - retrieve papers, analyze text, generate hypotheses, and design experiments powered by TensorFlow and OpenAI.
+            </p>
+            <a href="#research" class="btn btn-info btn-lg px-4 me-2">Start Researching</a>
+            <a href="#textAnalysis" class="btn btn-info btn-lg px-4 me-2">Analyze Text</a>
+            <a href="#chat" class="btn btn-outline-light btn-lg px-4">Try AI Chat</a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-5">
+        <div class="container">
+            <h2 class="section-heading">Powered by Advanced AI</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="feature-card text-center">
+                        <div class="feature-icon">📚</div>
+                        <h3>Paper Retrieval</h3>
+                        <p>Search and access thousands of research papers from arXiv and Semantic Scholar with our intelligent retrieval system.</p>
                     </div>
                 </div>
-            </nav>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="main-content">
-        <div class="container">
-            <div class="row mb-4">
-                <div class="col-md-8">
-                    <h1 class="mb-4">Welcome to AURA Research Assistant</h1>
-                    <p class="lead">
-                        Autonomous research assistant powered by AI to help you search for academic papers,
-                        summarize findings, generate hypotheses, and design experiments.
-                    </p>
-                    <p>
-                        <span class="badge bg-info">TensorFlow</span>
-                        <span class="badge bg-secondary">OpenAI</span>
-                        <span class="badge bg-secondary">Scientific Research</span>
-                        <span class="badge bg-secondary">Multi-agent System</span>
-                    </p>
+                <div class="col-md-4">
+                    <div class="feature-card text-center">
+                        <div class="feature-icon">🧠</div>
+                        <h3>TensorFlow Analysis</h3>
+                        <p>Leverage the power of TensorFlow to analyze research papers, identify patterns, and extract meaningful insights.</p>
+                    </div>
                 </div>
-                <div class="col-md-4 d-flex justify-content-end align-items-center">
-                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-                        <i class="bi bi-plus-circle me-2"></i> New Research Project
-                    </button>
+                <div class="col-md-4">
+                    <div class="feature-card text-center">
+                        <div class="feature-icon">💡</div>
+                        <h3>Hypothesis Generation</h3>
+                        <p>Generate research hypotheses and experimental designs based on retrieved papers and existing knowledge.</p>
+                    </div>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <!-- Project List -->
-            <div class="row mt-5">
-                <div class="col-12">
-                    <h2 class="mb-4">Your Research Projects</h2>
-                    
-                    {% if projects %}
-                        <div class="row">
-                            {% for project in projects %}
-                                <div class="col-md-6 col-lg-4 mb-4">
-                                    <div class="card h-100">
-                                        <div class="card-header">
-                                            <h5 class="card-title mb-0">{{ project.title }}</h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <p class="card-text">{{ project.description|truncate(100) }}</p>
-                                            <div class="d-flex justify-content-between align-items-center mt-3">
-                                                <small class="text-muted">
-                                                    Created: {{ format_date(project.created_at) }}
-                                                </small>
-                                                <a href="{{ url_for('main.view_project', project_id=project.id) }}" class="btn btn-outline-info">Open Project</a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
+    <!-- Research Section -->
+    <section id="research" class="py-5 bg-dark">
+        <div class="container">
+            <h2 class="section-heading text-white">Start Your Research</h2>
+            
+            <div class="search-form">
+                <form id="searchForm">
+                    <div class="mb-3">
+                        <label for="searchQuery" class="form-label text-white">Enter a research topic or question:</label>
+                        <input type="text" class="form-control form-control-lg" id="searchQuery" placeholder="e.g., Neural networks for image classification" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white">Search sources:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="sourceArxiv" checked>
+                            <label class="form-check-label text-white" for="sourceArxiv">
+                                arXiv
+                            </label>
                         </div>
-                    {% else %}
-                        <div class="alert alert-secondary">
-                            <h4 class="alert-heading">No projects yet!</h4>
-                            <p>Create your first research project to get started.</p>
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-                                <i class="bi bi-plus-circle me-2"></i> New Research Project
-                            </button>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="sourceSemanticScholar" checked>
+                            <label class="form-check-label text-white" for="sourceSemanticScholar">
+                                Semantic Scholar
+                            </label>
                         </div>
-                    {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-info btn-lg">Search Papers</button>
+                </form>
+            </div>
+            
+            <!-- Search Results -->
+            <div class="results-container d-none" id="resultsContainer">
+                <h3 class="text-white mb-4">Research Results</h3>
+                <div class="row" id="paperResults">
+                    <!-- Paper results will be inserted here -->
+                </div>
+                
+                <div class="text-center mt-4">
+                    <button id="analyzeBtn" class="btn btn-info btn-lg">Analyze with TensorFlow</button>
                 </div>
             </div>
             
-            <!-- TensorFlow Feature -->
-            <div class="row mt-5">
-                <div class="col-12">
-                    <div class="card tensorflow-card">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <h3 class="card-title">TensorFlow Integration</h3>
-                                    <p class="card-text">
-                                        AURA leverages TensorFlow for advanced research paper analysis, including:
-                                    </p>
-                                    <ul>
-                                        <li>Clustering similar papers based on content</li>
-                                        <li>Topic modeling to identify key research areas</li>
-                                        <li>Similarity analysis between papers</li>
-                                        <li>Trend analysis in research over time</li>
-                                    </ul>
-                                    <p>
-                                        Create a project and explore the power of AI-driven research assistance.
-                                    </p>
+            <!-- Analysis Results -->
+            <div class="mt-5 d-none" id="analysisContainer">
+                <h3 class="text-white mb-4">TensorFlow Analysis</h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="feature-card">
+                            <h4>Identified Topics</h4>
+                            <ul id="topicsList" class="list-group list-group-flush">
+                                <!-- Topics will be inserted here -->
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="feature-card">
+                            <h4>Research Trends</h4>
+                            <ul id="trendsList" class="list-group list-group-flush">
+                                <!-- Trends will be inserted here -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <button id="generateHypothesisBtn" class="btn btn-info btn-lg">Generate Hypothesis</button>
+                </div>
+            </div>
+            
+            <!-- Hypothesis Results -->
+            <div class="mt-5 d-none" id="hypothesisContainer">
+                <h3 class="text-white mb-4">Generated Hypothesis</h3>
+                <div class="feature-card">
+                    <h4 id="hypothesisTitle">Hypothesis</h4>
+                    <p id="hypothesisText" class="lead"></p>
+                    <hr>
+                    <h5>Reasoning</h5>
+                    <p id="hypothesisReasoning"></p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-info" id="confidenceScore">Confidence: 0.85</span>
+                        <button id="designExperimentBtn" class="btn btn-outline-info">Design Experiment</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Experiment Design -->
+            <div class="mt-5 d-none" id="experimentContainer">
+                <h3 class="text-white mb-4">Experiment Design</h3>
+                <div class="feature-card">
+                    <h4 id="experimentTitle">Experiment Design</h4>
+                    <hr>
+                    <h5>Methodology</h5>
+                    <p id="experimentMethodology"></p>
+                    <h5>Variables</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Independent Variables</h6>
+                            <ul id="independentVars">
+                                <!-- Independent variables will be inserted here -->
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Dependent Variables</h6>
+                            <ul id="dependentVars">
+                                <!-- Dependent variables will be inserted here -->
+                            </ul>
+                        </div>
+                    </div>
+                    <h5>Expected Outcomes</h5>
+                    <p id="expectedOutcomes"></p>
+                    <h5>Limitations</h5>
+                    <p id="limitations"></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Chat Section -->
+    <section id="chat" class="py-5">
+        <div class="container">
+            <h2 class="section-heading">AI Research Chat</h2>
+            <p class="text-center mb-5">Chat with our AI research assistant to ask questions, get explanations, or discuss research ideas.</p>
+            
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="chat-container" id="chatMessages">
+                        <!-- Sample messages for demonstration -->
+                        <div class="chat-message agent-message">
+                            <strong>AURA Assistant:</strong> Hello! I'm your AI research assistant. How can I help with your research today?
+                        </div>
+                    </div>
+                    
+                    <form id="chatForm" class="d-flex">
+                        <input type="text" id="userMessage" class="form-control me-2" placeholder="Type your message..." required>
+                        <button type="submit" class="btn btn-info">Send</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Text Analysis Section -->
+    <section id="textAnalysis" class="py-5 bg-dark">
+        <div class="container">
+            <h2 class="section-heading text-white">TensorFlow Text Analysis</h2>
+            <p class="text-center text-white mb-5">Analyze research text using our TensorFlow-powered algorithms to identify topics and sentiment.</p>
+            
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="search-form">
+                        <form id="textAnalysisForm">
+                            <div class="mb-3">
+                                <label for="analysisText" class="form-label text-white">Enter text to analyze:</label>
+                                <textarea class="form-control" id="analysisText" rows="5" placeholder="e.g., Recent advances in deep learning have significantly improved computer vision tasks..." required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white">Analysis type:</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="analysisType" id="topicAnalysis" value="topic" checked>
+                                    <label class="form-check-label text-white" for="topicAnalysis">
+                                        Topic Classification
+                                    </label>
                                 </div>
-                                <div class="col-md-4 d-flex align-items-center justify-content-center">
-                                    <button class="btn btn-tensorflow btn-lg" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-                                        Start Researching
-                                    </button>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="analysisType" id="sentimentAnalysis" value="sentiment">
+                                    <label class="form-check-label text-white" for="sentimentAnalysis">
+                                        Sentiment Analysis
+                                    </label>
                                 </div>
+                            </div>
+                            <button type="submit" class="btn btn-info btn-lg">Analyze with TensorFlow</button>
+                        </form>
+                    </div>
+                    
+                    <!-- Analysis Results Card -->
+                    <div id="textAnalysisResults" class="feature-card mt-4 d-none">
+                        <h4>Analysis Results</h4>
+                        <div id="topicResults" class="d-none">
+                            <h5 class="mt-3">Identified Topic</h5>
+                            <div class="alert alert-info">
+                                <strong>Primary Topic: </strong><span id="mainTopic"></span>
+                            </div>
+                            <div class="mt-3">
+                                <strong>Confidence Score: </strong><span id="topicConfidence"></span>
+                            </div>
+                            <h5 class="mt-3">All Topics</h5>
+                            <ul id="allTopics" class="list-group">
+                                <!-- Topics will be inserted here -->
+                            </ul>
+                        </div>
+                        <div id="sentimentResults" class="d-none">
+                            <h5 class="mt-3">Sentiment Analysis</h5>
+                            <div id="sentimentAlert">
+                                <!-- Sentiment alert will be inserted here -->
+                            </div>
+                            <div class="mt-3">
+                                <strong>Sentiment Score: </strong><span id="sentimentScore"></span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
+    </section>
 
     <!-- Footer -->
-    <footer class="site-footer">
+    <footer class="text-center text-white">
         <div class="container">
-            <div class="row">
-                <div class="col-12 text-center">
-                    <p>AURA Research Assistant &copy; 2025</p>
-                </div>
-            </div>
+            <p>AURA Research Assistant - Powered by TensorFlow and OpenAI</p>
+            <p class="mb-0">Developed for the modern researcher</p>
         </div>
     </footer>
 
-    <!-- New Project Modal -->
-    <div class="modal fade" id="newProjectModal" tabindex="-1" aria-labelledby="newProjectModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="newProjectModalLabel">Create New Research Project</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form action="{{ url_for('main.new_project') }}" method="POST">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="title" class="form-label">Project Title</label>
-                            <input type="text" class="form-control" id="title" name="title" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Create Project</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bootstrap Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Show New Project Modal if needed -->
-    {% if show_new_project_modal %}
+    <!-- Application JavaScript -->
+    <script src="/static/js/main.js"></script>
     <script>
+        // Simple demo functionality
         document.addEventListener('DOMContentLoaded', function() {
-            var newProjectModal = new bootstrap.Modal(document.getElementById('newProjectModal'));
-            newProjectModal.show();
+            // Search form submission
+            const searchForm = document.getElementById('searchForm');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const paperResults = document.getElementById('paperResults');
+            
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Show loading state
+                paperResults.innerHTML = '<div class="col-12 text-center text-white"><div class="spinner-border text-info" role="status"></div><p class="mt-2">Searching for papers...</p></div>';
+                resultsContainer.classList.remove('d-none');
+                
+                // Get search query
+                const query = document.getElementById('searchQuery').value;
+                
+                // Mock API call to search papers
+                setTimeout(() => {
+                    // Generate sample results
+                    generateSamplePapers(query);
+                }, 1500);
+            });
+            
+            // Analyze button click
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const analysisContainer = document.getElementById('analysisContainer');
+            
+            analyzeBtn.addEventListener('click', function() {
+                // Show loading
+                analyzeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+                analyzeBtn.disabled = true;
+                
+                // Mock analysis
+                setTimeout(() => {
+                    analysisContainer.classList.remove('d-none');
+                    generateSampleAnalysis();
+                    analyzeBtn.innerHTML = 'Analyze with TensorFlow';
+                    analyzeBtn.disabled = false;
+                    
+                    // Scroll to analysis
+                    analysisContainer.scrollIntoView({ behavior: 'smooth' });
+                }, 2000);
+            });
+            
+            // Generate hypothesis button click
+            const generateHypothesisBtn = document.getElementById('generateHypothesisBtn');
+            const hypothesisContainer = document.getElementById('hypothesisContainer');
+            
+            generateHypothesisBtn.addEventListener('click', function() {
+                // Show loading
+                generateHypothesisBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+                generateHypothesisBtn.disabled = true;
+                
+                // Mock hypothesis generation
+                setTimeout(() => {
+                    hypothesisContainer.classList.remove('d-none');
+                    generateSampleHypothesis();
+                    generateHypothesisBtn.innerHTML = 'Generate Hypothesis';
+                    generateHypothesisBtn.disabled = false;
+                    
+                    // Scroll to hypothesis
+                    hypothesisContainer.scrollIntoView({ behavior: 'smooth' });
+                }, 2000);
+            });
+            
+            // Design experiment button click
+            const designExperimentBtn = document.getElementById('designExperimentBtn');
+            const experimentContainer = document.getElementById('experimentContainer');
+            
+            designExperimentBtn.addEventListener('click', function() {
+                // Show loading
+                designExperimentBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Designing...';
+                designExperimentBtn.disabled = true;
+                
+                // Mock experiment design
+                setTimeout(() => {
+                    experimentContainer.classList.remove('d-none');
+                    generateSampleExperiment();
+                    designExperimentBtn.innerHTML = 'Design Experiment';
+                    designExperimentBtn.disabled = false;
+                    
+                    // Scroll to experiment
+                    experimentContainer.scrollIntoView({ behavior: 'smooth' });
+                }, 2000);
+            });
+            
+            // Chat form submission
+            const chatForm = document.getElementById('chatForm');
+            const chatMessages = document.getElementById('chatMessages');
+            
+            chatForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Get user message
+                const userMessage = document.getElementById('userMessage').value;
+                
+                // Add user message to chat
+                addChatMessage('You', userMessage, 'user-message');
+                
+                // Clear input
+                document.getElementById('userMessage').value = '';
+                
+                // Mock agent response
+                setTimeout(() => {
+                    const query = userMessage.toLowerCase();
+                    let response = '';
+                    
+                    if (query.includes('tensorflow') || query.includes('neural') || query.includes('deep learning')) {
+                        response = "TensorFlow is an open-source machine learning framework developed by Google. It's excellent for deep learning tasks like image recognition, natural language processing, and time series analysis. Our system uses TensorFlow for analyzing research papers and generating insights.";
+                    } else if (query.includes('paper') || query.includes('research') || query.includes('article')) {
+                        response = "AURA can help you find and analyze research papers from sources like arXiv and Semantic Scholar. Just type a query in the search box above, and I'll retrieve relevant papers for you.";
+                    } else if (query.includes('hypothesis') || query.includes('experiment')) {
+                        response = "Based on analyzed papers, I can generate research hypotheses and design experiments to test them. This helps researchers explore new directions and validate their ideas more efficiently.";
+                    } else {
+                        response = "I'm your AI research assistant. I can help you find papers, analyze research topics with TensorFlow, generate hypotheses, and design experiments. What specific aspect of your research are you interested in?";
+                    }
+                    
+                    addChatMessage('AURA Assistant', response, 'agent-message');
+                }, 1000);
+            });
+            // Text Analysis form submission
+            const textAnalysisForm = document.getElementById('textAnalysisForm');
+            const textAnalysisResults = document.getElementById('textAnalysisResults');
+            const topicResults = document.getElementById('topicResults');
+            const sentimentResults = document.getElementById('sentimentResults');
+            
+            if (textAnalysisForm) {
+                textAnalysisForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    // Get form data
+                    const text = document.getElementById('analysisText').value;
+                    const analysisType = document.querySelector('input[name="analysisType"]:checked').value;
+                    
+                    // Validate
+                    if (!text) {
+                        alert('Please enter text to analyze');
+                        return;
+                    }
+                    
+                    // Show loading state
+                    const submitBtn = textAnalysisForm.querySelector('button[type="submit"]');
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+                    submitBtn.disabled = true;
+                    
+                    // Reset results containers
+                    topicResults.classList.add('d-none');
+                    sentimentResults.classList.add('d-none');
+                    
+                    // Call the API
+                    fetch('/api/analyze/text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            text: text,
+                            analysis_type: analysisType
+                        }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Reset button
+                        submitBtn.innerHTML = 'Analyze with TensorFlow';
+                        submitBtn.disabled = false;
+                        
+                        if (data.error) {
+                            alert('Error: ' + data.error);
+                            return;
+                        }
+                        
+                        // Show results container
+                        textAnalysisResults.classList.remove('d-none');
+                        
+                        // Process results based on analysis type
+                        if (analysisType === 'topic') {
+                            // Display topic results
+                            document.getElementById('mainTopic').textContent = data.topic || 'Unknown';
+                            document.getElementById('topicConfidence').textContent = 
+                                ((data.confidence || 0) * 100).toFixed(1) + '%';
+                            
+                            // Display all topics
+                            const allTopicsElement = document.getElementById('allTopics');
+                            allTopicsElement.innerHTML = '';
+                            
+                            if (data.all_topics) {
+                                const topics = Object.entries(data.all_topics);
+                                topics.sort((a, b) => b[1] - a[1]); // Sort by confidence desc
+                                
+                                topics.forEach(([topic, confidence]) => {
+                                    const li = document.createElement('li');
+                                    li.className = 'list-group-item d-flex justify-content-between align-items-center bg-transparent';
+                                    li.innerHTML = `
+                                        ${topic}
+                                        <span class="badge bg-info rounded-pill">${(confidence * 100).toFixed(1)}%</span>
+                                    `;
+                                    allTopicsElement.appendChild(li);
+                                });
+                            }
+                            
+                            topicResults.classList.remove('d-none');
+                        } else if (analysisType === 'sentiment') {
+                            // Display sentiment results
+                            const sentimentAlert = document.getElementById('sentimentAlert');
+                            const sentimentScore = document.getElementById('sentimentScore');
+                            
+                            // Set sentiment alert type
+                            let alertClass = 'alert-info';
+                            if (data.sentiment === 'positive') {
+                                alertClass = 'alert-success';
+                            } else if (data.sentiment === 'negative') {
+                                alertClass = 'alert-danger';
+                            }
+                            
+                            sentimentAlert.className = `alert ${alertClass}`;
+                            sentimentAlert.innerHTML = `<strong>Sentiment: </strong>${data.sentiment || 'Neutral'}`;
+                            
+                            // Set score
+                            sentimentScore.textContent = 
+                                ((data.score || 0) * 100).toFixed(1) + '%';
+                            
+                            sentimentResults.classList.remove('d-none');
+                        }
+                        
+                        // Scroll to results
+                        textAnalysisResults.scrollIntoView({ behavior: 'smooth' });
+                    })
+                    .catch(error => {
+                        // Reset button
+                        submitBtn.innerHTML = 'Analyze with TensorFlow';
+                        submitBtn.disabled = false;
+                        
+                        // Show error
+                        alert('Error: ' + error.message);
+                    });
+                });
+            }
+            
+            // Helper functions
+            function generateSamplePapers(query) {
+                const papers = [
+                    {
+                        title: `Advanced ${query.split(' ')[0]} Research with TensorFlow`,
+                        authors: "Zhang et al.",
+                        abstract: `This paper presents a comprehensive study of ${query} using deep learning approaches with TensorFlow. We demonstrate state-of-the-art results on benchmark datasets.`,
+                        year: "2024"
+                    },
+                    {
+                        title: `A Survey of ${query} Methods`,
+                        authors: "Johnson, Smith & Wong",
+                        abstract: `We review recent advances in ${query} and categorize current approaches based on their methodologies and performance characteristics.`,
+                        year: "2023"
+                    },
+                    {
+                        title: `Efficient Models for ${query}: A TensorFlow Approach`,
+                        authors: "Garcia & Kim",
+                        abstract: `This work introduces optimized TensorFlow implementations for ${query} tasks that reduce computational requirements while maintaining accuracy.`,
+                        year: "2023"
+                    },
+                    {
+                        title: `${query} Analysis with Neural Networks`,
+                        authors: "Patel et al.",
+                        abstract: `We propose a novel neural architecture for analyzing ${query} that outperforms conventional methods on multiple evaluation metrics.`,
+                        year: "2022"
+                    }
+                ];
+                
+                let html = '';
+                papers.forEach(paper => {
+                    html += `
+                    <div class="col-md-6 mb-4">
+                        <div class="card paper-card">
+                            <div class="card-body">
+                                <h5 class="card-title">${paper.title}</h5>
+                                <h6 class="card-subtitle mb-2 text-muted">${paper.authors}</h6>
+                                <p class="card-text">${paper.abstract}</p>
+                                <div class="paper-meta d-flex justify-content-between">
+                                    <span>Published: ${paper.year}</span>
+                                    <button class="btn btn-sm btn-outline-info">View Details</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                });
+                
+                paperResults.innerHTML = html;
+            }
+            
+            function generateSampleAnalysis() {
+                // Generate topics
+                const topics = [
+                    { name: "Neural Networks", weight: 0.89 },
+                    { name: "TensorFlow Implementation", weight: 0.76 },
+                    { name: "Deep Learning Optimization", weight: 0.72 },
+                    { name: "Performance Evaluation", weight: 0.68 }
+                ];
+                
+                let topicsHtml = '';
+                topics.forEach(topic => {
+                    topicsHtml += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                        ${topic.name}
+                        <span class="badge bg-info rounded-pill">${topic.weight.toFixed(2)}</span>
+                    </li>
+                    `;
+                });
+                
+                document.getElementById('topicsList').innerHTML = topicsHtml;
+                
+                // Generate trends
+                const trends = [
+                    { name: "Transformer Architecture", growth: 0.85, year: 2020 },
+                    { name: "TensorFlow for Edge Devices", growth: 0.72, year: 2021 },
+                    { name: "Federated Learning", growth: 0.65, year: 2022 }
+                ];
+                
+                let trendsHtml = '';
+                trends.forEach(trend => {
+                    trendsHtml += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                        ${trend.name} (since ${trend.year})
+                        <span class="badge bg-info rounded-pill">+${(trend.growth * 100).toFixed(0)}%</span>
+                    </li>
+                    `;
+                });
+                
+                document.getElementById('trendsList').innerHTML = trendsHtml;
+            }
+            
+            function generateSampleHypothesis() {
+                const query = document.getElementById('searchQuery').value;
+                const words = query.split(' ').filter(w => w.length > 3);
+                const keyword = words.length > 0 ? words[Math.floor(Math.random() * words.length)] : 'neural networks';
+                
+                document.getElementById('hypothesisText').textContent = `A hybrid ${keyword} architecture that combines attention mechanisms with convolutional layers will improve performance on low-resource datasets by at least 15% compared to standard architectures.`;
+                
+                document.getElementById('hypothesisReasoning').textContent = `Analysis of recent papers shows that attention mechanisms excel at capturing long-range dependencies, while convolutional layers are efficient at extracting local features. The combination addresses the limitations of each approach individually. Furthermore, several papers indicate that hybrid architectures show greater efficiency in low-resource scenarios, suggesting a promising direction for improving performance with limited training data.`;
+                
+                document.getElementById('confidenceScore').textContent = `Confidence: 0.83`;
+            }
+            
+            function generateSampleExperiment() {
+                const hypothesisText = document.getElementById('hypothesisText').textContent;
+                
+                document.getElementById('experimentTitle').textContent = `Evaluating Hybrid Architecture Performance on Low-Resource Datasets`;
+                
+                document.getElementById('experimentMethodology').textContent = `We will implement the proposed hybrid architecture combining attention mechanisms with convolutional layers using TensorFlow. The model will be evaluated on three low-resource datasets with varying characteristics: a small image classification dataset, a limited NLP corpus, and a specialized domain dataset. Performance will be compared against baseline models using standard architectures.`;
+                
+                // Independent variables
+                const independentVars = [
+                    "Architecture type (hybrid vs. standard)",
+                    "Attention mechanism configuration (variants: self-attention, cross-attention)",
+                    "Dataset size (10%, 25%, 50% of full dataset)",
+                    "Training hyperparameters (learning rate, batch size)"
+                ];
+                
+                let indVarsHtml = '';
+                independentVars.forEach(v => {
+                    indVarsHtml += `<li>${v}</li>`;
+                });
+                document.getElementById('independentVars').innerHTML = indVarsHtml;
+                
+                // Dependent variables
+                const dependentVars = [
+                    "Model accuracy",
+                    "Convergence rate",
+                    "Computational efficiency",
+                    "Performance degradation with reduced dataset size"
+                ];
+                
+                let depVarsHtml = '';
+                dependentVars.forEach(v => {
+                    depVarsHtml += `<li>${v}</li>`;
+                });
+                document.getElementById('dependentVars').innerHTML = depVarsHtml;
+                
+                document.getElementById('expectedOutcomes').textContent = `We expect the hybrid architecture to show at least 15% improvement in accuracy on low-resource datasets compared to standard architectures. The attention component should help maintain performance even with reduced training data, while the convolutional component should improve computational efficiency. The greatest improvements are expected on datasets with both local and global feature dependencies.`;
+                
+                document.getElementById('limitations').textContent = `Potential limitations include increased model complexity that may require additional tuning, possible overfitting on very small datasets, and domain-specific variations in performance. The experiment will need to carefully control for these factors and include appropriate regularization strategies.`;
+            }
+            
+            function addChatMessage(sender, message, className) {
+                const messageElement = document.createElement('div');
+                messageElement.className = `chat-message ${className}`;
+                messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+                
+                chatMessages.appendChild(messageElement);
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
         });
     </script>
-    {% endif %}
 </body>
 </html>

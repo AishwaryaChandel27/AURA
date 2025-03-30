@@ -66,16 +66,24 @@ def create_app():
     
     # Import and register blueprints
     with app.app_context():
-        from routes.main_routes import main_bp
-        from routes.api_routes import api_bp
-        
-        app.register_blueprint(main_bp)
-        app.register_blueprint(api_bp, url_prefix="/api")
-        
-        # Create database tables
-        import models  # noqa
-        db.create_all()
-        
-        logger.info("Database tables created")
+        try:
+            from routes.main_routes import main_bp
+            from routes.api_routes import api_bp
+            
+            # Register blueprints with appropriate prefixes
+            app.register_blueprint(main_bp)
+            app.register_blueprint(api_bp, url_prefix="/api")
+            
+            # Create database tables
+            import models  # noqa
+            db.create_all()
+            
+            logger.info("Database tables created")
+        except Exception as e:
+            logger.error(f"Error setting up application: {e}")
     
     return app
+
+
+# Create the application instance
+app = create_app()

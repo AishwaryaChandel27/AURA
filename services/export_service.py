@@ -1,251 +1,226 @@
 """
 Export Service for AURA Research Assistant
-Handles export of research data in various formats
 """
 
-import json
 import logging
+import json
+from typing import Dict, List, Any, Optional
+import os
 from datetime import datetime
-from typing import Dict, List, Any
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 class ExportService:
     """
-    Service for exporting project data in various formats
+    Service for exporting research data in different formats
     """
     
-    def export_project(self, project, papers, hypotheses, format_type='json'):
+    def __init__(self):
+        """Initialize the ExportService"""
+        logger.info("Initializing ExportService")
+        
+        # Create exports directory if it doesn't exist
+        self.exports_dir = "exports"
+        if not os.path.exists(self.exports_dir):
+            os.makedirs(self.exports_dir)
+    
+    def export_to_json(self, data: Dict[str, Any], filename: Optional[str] = None) -> str:
         """
-        Export project data in the specified format
+        Export data to a JSON file
         
         Args:
-            project: The project object
-            papers: List of paper objects
-            hypotheses: List of hypothesis objects
-            format_type (str): Export format ('json', 'csv', 'bibtex')
+            data (dict): The data to export
+            filename (str, optional): Custom filename
             
         Returns:
-            dict: Export data
+            str: Path to the exported file
         """
         try:
-            logger.info(f"Exporting project {project.id} in {format_type} format")
+            # Generate filename if not provided
+            if not filename:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"export_{timestamp}.json"
             
-            if format_type == 'json':
-                return self._export_json(project, papers, hypotheses)
-            elif format_type == 'csv':
-                return self._export_csv(project, papers, hypotheses)
-            elif format_type == 'bibtex':
-                return self._export_bibtex(project, papers)
-            else:
-                logger.warning(f"Unsupported export format: {format_type}")
-                return {
-                    'error': f"Unsupported export format: {format_type}",
-                    'supported_formats': ['json', 'csv', 'bibtex']
-                }
-        
-        except Exception as e:
-            logger.error(f"Error exporting project: {e}")
-            return {'error': f"Error exporting project: {str(e)}"}
-    
-    def _export_json(self, project, papers, hypotheses):
-        """Export project data as JSON"""
-        try:
-            # Convert project to dict
-            project_data = {
-                'id': project.id,
-                'title': project.title,
-                'description': project.description,
-                'created_at': project.created_at.isoformat() if project.created_at else None,
-                'updated_at': project.updated_at.isoformat() if project.updated_at else None
-            }
+            # Ensure .json extension
+            if not filename.endswith('.json'):
+                filename += '.json'
             
-            # Convert papers to dict
-            papers_data = []
-            for paper in papers:
-                paper_dict = {
-                    'id': paper.id,
-                    'title': paper.title,
-                    'authors': paper.get_authors() if hasattr(paper, 'get_authors') else [],
-                    'abstract': paper.abstract,
-                    'url': paper.url,
-                    'pdf_url': paper.pdf_url,
-                    'published_date': paper.published_date.isoformat() if paper.published_date else None,
-                    'source': paper.source,
-                    'metadata': paper.get_metadata() if hasattr(paper, 'get_metadata') else {}
-                }
-                
-                # Add summary if available
-                if hasattr(paper, 'summary') and paper.summary:
-                    paper_dict['summary'] = {
-                        'summary_text': paper.summary.summary_text,
-                        'key_findings': paper.summary.get_key_findings() if hasattr(paper.summary, 'get_key_findings') else []
-                    }
-                
-                papers_data.append(paper_dict)
+            # Create full path
+            filepath = os.path.join(self.exports_dir, filename)
             
-            # Convert hypotheses to dict
-            hypotheses_data = []
-            for hypothesis in hypotheses:
-                hypothesis_dict = {
-                    'id': hypothesis.id,
-                    'hypothesis_text': hypothesis.hypothesis_text,
-                    'reasoning': hypothesis.reasoning,
-                    'confidence_score': hypothesis.confidence_score,
-                    'supporting_evidence': hypothesis.get_supporting_evidence() if hasattr(hypothesis, 'get_supporting_evidence') else {},
-                    'created_at': hypothesis.created_at.isoformat() if hypothesis.created_at else None
-                }
-                
-                # Add experiments if available
-                if hasattr(hypothesis, 'experiments') and hypothesis.experiments:
-                    hypothesis_dict['experiments'] = []
-                    for experiment in hypothesis.experiments:
-                        experiment_dict = {
-                            'id': experiment.id,
-                            'title': experiment.title,
-                            'methodology': experiment.methodology,
-                            'variables': experiment.get_variables() if hasattr(experiment, 'get_variables') else {},
-                            'controls': experiment.controls,
-                            'expected_outcomes': experiment.expected_outcomes,
-                            'limitations': experiment.limitations
-                        }
-                        hypothesis_dict['experiments'].append(experiment_dict)
-                
-                hypotheses_data.append(hypothesis_dict)
+            # Export the data
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
             
-            # Create the export data
-            export_data = {
-                'project': project_data,
-                'papers': papers_data,
-                'hypotheses': hypotheses_data,
-                'export_date': datetime.utcnow().isoformat(),
-                'format': 'json'
-            }
+            logger.info(f"Data exported to {filepath}")
+            return filepath
             
-            return export_data
-        
         except Exception as e:
             logger.error(f"Error exporting to JSON: {e}")
-            return {'error': f"Error exporting to JSON: {str(e)}"}
+            raise
     
-    def _export_csv(self, project, papers, hypotheses):
-        """Export project data as CSV (in JSON format for API response)"""
-        try:
-            # For API response, return JSON with CSV content as strings
-            
-            # Create CSV strings
-            papers_csv = "id,title,authors,published_date,source,url\n"
-            for paper in papers:
-                authors = paper.get_authors() if hasattr(paper, 'get_authors') else []
-                if authors and isinstance(authors[0], dict):
-                    author_names = [a.get('name', '') for a in authors]
-                    authors_text = '; '.join(author_names)
-                else:
-                    authors_text = '; '.join(authors) if authors else ''
-                
-                # Escape quotes in text fields
-                title = paper.title.replace('"', '""') if paper.title else ''
-                authors_text = authors_text.replace('"', '""')
-                
-                published_date = paper.published_date.strftime('%Y-%m-%d') if paper.published_date else ''
-                url = paper.url or ''
-                
-                papers_csv += f"{paper.id},\"{title}\",\"{authors_text}\",{published_date},{paper.source},\"{url}\"\n"
-            
-            hypotheses_csv = "id,hypothesis_text,confidence_score,created_at\n"
-            for hypothesis in hypotheses:
-                # Escape quotes in text fields
-                hypothesis_text = hypothesis.hypothesis_text.replace('"', '""') if hypothesis.hypothesis_text else ''
-                
-                created_at = hypothesis.created_at.strftime('%Y-%m-%d') if hypothesis.created_at else ''
-                
-                hypotheses_csv += f"{hypothesis.id},\"{hypothesis_text}\",{hypothesis.confidence_score},{created_at}\n"
-            
-            # Create the export data
-            export_data = {
-                'project': {
-                    'id': project.id,
-                    'title': project.title,
-                    'description': project.description
-                },
-                'papers_csv': papers_csv,
-                'hypotheses_csv': hypotheses_csv,
-                'export_date': datetime.utcnow().isoformat(),
-                'format': 'csv'
-            }
-            
-            return export_data
+    def export_to_markdown(self, data: Dict[str, Any], filename: Optional[str] = None) -> str:
+        """
+        Export data to a Markdown file
         
-        except Exception as e:
-            logger.error(f"Error exporting to CSV: {e}")
-            return {'error': f"Error exporting to CSV: {str(e)}"}
-    
-    def _export_bibtex(self, project, papers):
-        """Export papers as BibTeX (in JSON format for API response)"""
-        try:
-            bibtex_content = ""
+        Args:
+            data (dict): The data to export
+            filename (str, optional): Custom filename
             
-            for paper in papers:
-                # Create BibTeX entry
-                entry_type = "article"  # Default type
+        Returns:
+            str: Path to the exported file
+        """
+        try:
+            # Generate filename if not provided
+            if not filename:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"export_{timestamp}.md"
+            
+            # Ensure .md extension
+            if not filename.endswith('.md'):
+                filename += '.md'
+            
+            # Create full path
+            filepath = os.path.join(self.exports_dir, filename)
+            
+            # Convert data to Markdown
+            markdown_content = self._convert_to_markdown(data)
+            
+            # Export the markdown
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            
+            logger.info(f"Data exported to {filepath}")
+            return filepath
+            
+        except Exception as e:
+            logger.error(f"Error exporting to Markdown: {e}")
+            raise
+    
+    def _convert_to_markdown(self, data: Dict[str, Any], level: int = 1) -> str:
+        """
+        Convert data to Markdown format
+        
+        Args:
+            data (dict): The data to convert
+            level (int): Current heading level
+            
+        Returns:
+            str: Markdown content
+        """
+        markdown = ""
+        
+        # Handle project data specially
+        if "title" in data and level == 1:
+            markdown += f"# {data['title']}\n\n"
+            
+            if "description" in data:
+                markdown += f"{data['description']}\n\n"
+            
+            if "created_at" in data:
+                created_at = data['created_at']
+                if isinstance(created_at, str):
+                    markdown += f"Created: {created_at}\n\n"
+            
+            if "updated_at" in data:
+                updated_at = data['updated_at']
+                if isinstance(updated_at, str):
+                    markdown += f"Last updated: {updated_at}\n\n"
+        
+        # Handle papers
+        if "papers" in data:
+            markdown += f"{'#' * level} Papers\n\n"
+            
+            for i, paper in enumerate(data["papers"]):
+                markdown += f"### {i+1}. {paper.get('title', 'Untitled Paper')}\n\n"
                 
-                # Create a citation key from first author's last name and year
-                authors = paper.get_authors() if hasattr(paper, 'get_authors') else []
-                citation_key = "paper"
-                
-                if authors:
-                    if isinstance(authors[0], dict):
-                        first_author = authors[0].get('name', '')
+                if "authors" in paper:
+                    authors = paper["authors"]
+                    if isinstance(authors, list):
+                        author_names = [a.get("name", "") for a in authors if isinstance(a, dict)]
+                        markdown += f"**Authors:** {', '.join(author_names)}\n\n"
                     else:
-                        first_author = authors[0]
+                        markdown += f"**Authors:** {authors}\n\n"
+                
+                if "abstract" in paper:
+                    markdown += f"**Abstract:** {paper['abstract']}\n\n"
+                
+                if "url" in paper:
+                    markdown += f"**URL:** [{paper['url']}]({paper['url']})\n\n"
+                
+                if "published_date" in paper:
+                    markdown += f"**Published:** {paper['published_date']}\n\n"
+                
+                markdown += "---\n\n"
+        
+        # Handle hypothesis
+        if "hypothesis" in data:
+            markdown += f"{'#' * level} Hypothesis\n\n"
+            
+            hypothesis = data["hypothesis"]
+            if isinstance(hypothesis, dict):
+                if "hypothesis_text" in hypothesis:
+                    markdown += f"**Hypothesis:** {hypothesis['hypothesis_text']}\n\n"
+                
+                if "reasoning" in hypothesis:
+                    markdown += f"**Reasoning:** {hypothesis['reasoning']}\n\n"
+                
+                if "confidence_score" in hypothesis:
+                    markdown += f"**Confidence Score:** {hypothesis['confidence_score']}\n\n"
+            else:
+                markdown += f"{hypothesis}\n\n"
+        
+        # Handle experiment
+        if "experiment" in data:
+            markdown += f"{'#' * level} Experiment Design\n\n"
+            
+            experiment = data["experiment"]
+            if isinstance(experiment, dict):
+                if "title" in experiment:
+                    markdown += f"**Title:** {experiment['title']}\n\n"
+                
+                if "methodology" in experiment:
+                    markdown += f"**Methodology:**\n\n{experiment['methodology']}\n\n"
+                
+                if "variables" in experiment and isinstance(experiment["variables"], dict):
+                    markdown += "**Variables:**\n\n"
                     
-                    if first_author:
-                        # Extract last name
-                        last_name = first_author.split()[-1]
-                        citation_key = last_name.lower()
+                    if "independent" in experiment["variables"]:
+                        markdown += "Independent Variables:\n"
+                        for var in experiment["variables"]["independent"]:
+                            markdown += f"- {var}\n"
+                        markdown += "\n"
+                    
+                    if "dependent" in experiment["variables"]:
+                        markdown += "Dependent Variables:\n"
+                        for var in experiment["variables"]["dependent"]:
+                            markdown += f"- {var}\n"
+                        markdown += "\n"
                 
-                # Add year if available
-                if paper.published_date:
-                    year = paper.published_date.year
-                    citation_key += str(year)
-                else:
-                    year = ""
+                if "expected_outcomes" in experiment:
+                    markdown += f"**Expected Outcomes:**\n\n{experiment['expected_outcomes']}\n\n"
                 
-                # Format authors for BibTeX
-                bibtex_authors = ""
-                if authors:
-                    if isinstance(authors[0], dict):
-                        author_names = [a.get('name', '') for a in authors]
-                        bibtex_authors = " and ".join(author_names)
-                    else:
-                        bibtex_authors = " and ".join(authors)
-                
-                # Create the BibTeX entry
-                bibtex_entry = f"@{entry_type}{{{citation_key},\n"
-                bibtex_entry += f"  title = {{{paper.title}}},\n" if paper.title else ""
-                bibtex_entry += f"  author = {{{bibtex_authors}}},\n" if bibtex_authors else ""
-                bibtex_entry += f"  year = {{{year}}},\n" if year else ""
-                bibtex_entry += f"  url = {{{paper.url}}},\n" if paper.url else ""
-                bibtex_entry += f"  source = {{{paper.source}}}\n" if paper.source else ""
-                bibtex_entry += "}\n\n"
-                
-                bibtex_content += bibtex_entry
-            
-            # Create the export data
-            export_data = {
-                'project': {
-                    'id': project.id,
-                    'title': project.title
-                },
-                'bibtex': bibtex_content,
-                'paper_count': len(papers),
-                'export_date': datetime.utcnow().isoformat(),
-                'format': 'bibtex'
-            }
-            
-            return export_data
+                if "limitations" in experiment:
+                    markdown += f"**Limitations:**\n\n{experiment['limitations']}\n\n"
+            else:
+                markdown += f"{experiment}\n\n"
         
-        except Exception as e:
-            logger.error(f"Error exporting to BibTeX: {e}")
-            return {'error': f"Error exporting to BibTeX: {str(e)}"}
+        # Handle other data types
+        for key, value in data.items():
+            if key not in ["title", "description", "created_at", "updated_at", "papers", "hypothesis", "experiment"]:
+                markdown += f"{'#' * level} {key.replace('_', ' ').title()}\n\n"
+                
+                if isinstance(value, dict):
+                    markdown += self._convert_to_markdown(value, level + 1)
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict):
+                            markdown += self._convert_to_markdown(item, level + 1)
+                        else:
+                            markdown += f"- {item}\n"
+                    markdown += "\n"
+                else:
+                    markdown += f"{value}\n\n"
+        
+        return markdown

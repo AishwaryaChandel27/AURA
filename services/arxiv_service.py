@@ -1,153 +1,138 @@
 """
 arXiv Service for AURA Research Assistant
-Handles interactions with the arXiv API
 """
 
 import logging
-import random
-import re
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
 import json
+from typing import List, Dict, Any
+from datetime import datetime
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 class ArxivService:
     """
-    Service for arXiv API interactions
-    Provides methods to search and retrieve papers from arXiv
-    
-    Note: In a real implementation, this would use the arXiv API
-    For this prototype, it generates sample data
+    Service for retrieving papers from arXiv
     """
     
     def __init__(self):
-        """Initialize ArxivService"""
+        """Initialize the ArxivService"""
         logger.info("Initializing ArxivService")
     
-    def search_papers(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    def search_papers(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
         """
         Search for papers on arXiv
         
         Args:
-            query (str): Search query
+            query (str): The search query
             max_results (int): Maximum number of results to return
             
         Returns:
             list: List of paper dictionaries
         """
         try:
-            logger.info(f"Searching arXiv for '{query}', max_results={max_results}")
+            # For demo purposes, return sample papers that match the query
+            # In a production environment, this would use the actual arXiv API
+            sample_papers = self._generate_sample_papers(query, max_results)
             
-            # Mock data for prototype
-            return self._generate_sample_papers(query, max_results)
+            return sample_papers
             
-            # In a real implementation, this would use the arXiv API
-            # Example:
-            # import arxiv
-            # search = arxiv.Search(query=query, max_results=max_results)
-            # results = list(search.results())
-            # return self._parse_arxiv_results(results)
-        
         except Exception as e:
             logger.error(f"Error searching arXiv: {e}")
             return []
     
-    def get_paper(self, paper_id: str) -> Dict[str, Any]:
+    def get_paper_details(self, arxiv_id: str) -> Dict[str, Any]:
         """
-        Get a specific paper from arXiv
+        Get detailed information for a specific arXiv paper
         
         Args:
-            paper_id (str): arXiv paper ID
+            arxiv_id (str): The arXiv ID of the paper
             
         Returns:
             dict: Paper details
         """
         try:
-            logger.info(f"Retrieving paper {paper_id} from arXiv")
-            
-            # Mock data for prototype
+            # For demo purposes, return a sample paper
+            # In a production environment, this would use the actual arXiv API
             return {
-                'title': f"Sample Paper {paper_id}",
-                'authors': self._generate_sample_authors(random.randint(1, 4)),
-                'abstract': "This is a sample abstract for a paper from arXiv.",
-                'url': f"https://arxiv.org/abs/{paper_id}",
-                'pdf_url': f"https://arxiv.org/pdf/{paper_id}.pdf",
-                'published_date': datetime.now().isoformat(),
-                'source': 'arxiv',
-                'external_id': paper_id
+                "title": f"Sample Paper with ID {arxiv_id}",
+                "authors": self._generate_sample_authors(3),
+                "abstract": "This is a sample abstract for a paper retrieved from arXiv.",
+                "url": f"https://arxiv.org/abs/{arxiv_id}",
+                "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf",
+                "published_date": "2024-03-15",
+                "source": "arxiv",
+                "external_id": arxiv_id
             }
             
-            # In a real implementation, this would use the arXiv API
-            # Example:
-            # import arxiv
-            # paper = next(arxiv.Search(id_list=[paper_id]).results())
-            # return self._parse_arxiv_paper(paper)
-        
         except Exception as e:
-            logger.error(f"Error retrieving paper from arXiv: {e}")
+            logger.error(f"Error getting paper details from arXiv: {e}")
             return {}
     
-    def _generate_sample_papers(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    def _generate_sample_papers(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
         """
-        Generate sample papers for testing
+        Generate sample papers for demo purposes
         
         Args:
-            query (str): Search query
-            max_results (int): Maximum number of papers to generate
+            query (str): The search query
+            max_results (int): Maximum number of results to return
             
         Returns:
             list: List of paper dictionaries
         """
+        topics = ["neural networks", "deep learning", "machine learning", 
+                 "artificial intelligence", "computer vision", "natural language processing"]
+        
+        # Find the most relevant topic from the query
+        relevant_topic = None
+        for topic in topics:
+            if topic.lower() in query.lower():
+                relevant_topic = topic
+                break
+        
+        if not relevant_topic:
+            relevant_topic = "machine learning"  # Default topic
+        
         papers = []
-        
-        # Create sample paper titles and authors based on the query
-        query_terms = query.split() if query else ["research"]
-        base_titles = [
-            "Advances in {term} Research Using TensorFlow",
-            "A Survey of {term} Methods with Deep Learning",
-            "Towards Efficient {term} Models: A TensorFlow Approach",
-            "{term} Analysis and Applications with Neural Networks",
-            "Deep Learning for {term}: State of the Art",
-            "Neural Network Approaches to {term} Classification",
-            "TensorFlow Implementation for {term} Recognition",
-            "Multi-Modal Learning for {term} Tasks",
-            "Benchmark Datasets for {term} in Machine Learning",
-            "Supervised Learning Techniques for {term} Prediction"
-        ]
-        
-        # Generate random base dates within the last 5 years
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=5*365)
-        
-        # Generate sample papers
-        for i in range(min(max_results, len(base_titles))):
-            term = random.choice(query_terms)
+        for i in range(max_results):
+            # Generate a sample paper with more realistic details
+            paper_id = f"2403.{10000 + i:05d}"
             
-            # Create a random publication date
-            days_diff = (end_date - start_date).days
-            random_days = random.randint(0, days_diff)
-            pub_date = start_date + timedelta(days=random_days)
+            # Vary titles based on the query
+            title_options = [
+                f"Advances in {relevant_topic.title()} for {query.title()}",
+                f"A Novel Approach to {query.title()} using {relevant_topic.title()}",
+                f"{relevant_topic.title()}: Applications in {query.title()}",
+                f"TensorFlow Implementations for {query.title()} Research",
+                f"Improving {query.title()} with Deep Learning Techniques"
+            ]
             
-            # Generate arXiv ID format: YYMM.NNNNN
-            year_month = pub_date.strftime("%y%m")
-            id_number = random.randint(10000, 99999)
-            arxiv_id = f"{year_month}.{id_number}"
+            title = title_options[i % len(title_options)]
             
-            # Create a random paper
-            paper = {
-                'title': base_titles[i].format(term=term.capitalize()),
-                'authors': self._generate_sample_authors(random.randint(1, 4)),
-                'abstract': self._generate_sample_abstract(term),
-                'url': f"https://arxiv.org/abs/{arxiv_id}",
-                'pdf_url': f"https://arxiv.org/pdf/{arxiv_id}.pdf",
-                'published_date': pub_date.isoformat(),
-                'source': 'arxiv',
-                'external_id': arxiv_id
-            }
+            # Generate abstract with query and relevant topic
+            abstract = f"This paper presents research on {query} using {relevant_topic} techniques. " \
+                      f"We propose a novel approach that combines TensorFlow with specialized algorithms " \
+                      f"to improve performance in {query.lower()} tasks. Our experimental results show " \
+                      f"significant improvements over baseline methods in terms of accuracy and efficiency."
             
-            papers.append(paper)
+            # Generate a realistic published date (within the last 2 years)
+            import random
+            month = random.randint(1, 12)
+            day = random.randint(1, 28)
+            year = random.choice([2023, 2024])
+            published_date = f"{year}-{month:02d}-{day:02d}"
+            
+            papers.append({
+                "title": title,
+                "authors": self._generate_sample_authors(random.randint(2, 4)),
+                "abstract": abstract,
+                "url": f"https://arxiv.org/abs/{paper_id}",
+                "pdf_url": f"https://arxiv.org/pdf/{paper_id}.pdf",
+                "published_date": published_date,
+                "source": "arxiv",
+                "external_id": paper_id,
+                "year": str(year)
+            })
         
         return papers
     
@@ -161,117 +146,22 @@ class ArxivService:
         Returns:
             list: List of author dictionaries
         """
-        first_names = ["John", "Jane", "Michael", "Emily", "David", "Sarah", "Robert", "Lisa", "Wei", 
-                      "Ying", "Raj", "Priya", "Carlos", "Maria", "Hiroshi", "Yuki"]
-        last_names = ["Smith", "Johnson", "Chen", "Wang", "Patel", "Singh", "Garcia", "Rodriguez", 
-                     "Tanaka", "Suzuki", "Kim", "Park", "Nguyen", "Tran", "Mueller", "Schmidt"]
-        affiliations = ["University of Science", "Tech Institute", "Research University", 
-                       "National Laboratory", "AI Research Center", "Data Science Institute"]
+        first_names = ["Aisha", "Biyu", "Carlos", "Deepa", "Elena", "Fatima", "Gabriel", 
+                       "Hiroshi", "Isabella", "Jun", "Kiran", "Layla", "Ming", "Nguyen", 
+                       "Olga", "Priya", "Qiang", "Ravi", "Sonia", "Tao", "Umar", "Victoria", 
+                       "Wei", "Xin", "Yasmin", "Zhen"]
+        
+        last_names = ["Ahmed", "Baryshnikov", "Chen", "Das", "Einarsson", "Feng", "Garcia", 
+                      "Hansson", "Ivanova", "Jensen", "Kumar", "Li", "Martinez", "Nakamura", 
+                      "Oliveira", "Park", "Qian", "Rodriguez", "Singh", "Tanaka", "Ueda", 
+                      "Villanueva", "Wang", "Xu", "Yamamoto", "Zhang"]
+        
+        import random
         
         authors = []
-        used_names = set()  # To avoid duplicates
-        
-        for i in range(num_authors):
-            # Generate unique name
-            while True:
-                first_name = random.choice(first_names)
-                last_name = random.choice(last_names)
-                full_name = f"{first_name} {last_name}"
-                
-                if full_name not in used_names:
-                    used_names.add(full_name)
-                    break
-            
-            # Generate random affiliation
-            affiliation = random.choice(affiliations)
-            if i > 0:  # Add some variation in affiliations
-                affiliation += f" {random.choice(['Department of Computer Science', 'School of AI', 'Machine Learning Lab'])}"
-            
-            authors.append({
-                'name': full_name,
-                'affiliation': affiliation
-            })
+        for _ in range(num_authors):
+            first_name = random.choice(first_names)
+            last_name = random.choice(last_names)
+            authors.append({"name": f"{first_name} {last_name}"})
         
         return authors
-    
-    def _generate_sample_abstract(self, term: str) -> str:
-        """
-        Generate a sample abstract based on a search term
-        
-        Args:
-            term (str): Search term
-            
-        Returns:
-            str: Generated abstract
-        """
-        # Set of templates for different parts of the abstract
-        intros = [
-            f"This paper presents a novel approach to {term} using deep learning techniques.",
-            f"We propose a new method for addressing challenges in {term} research using TensorFlow.",
-            f"In this work, we investigate the application of neural networks to {term} problems."
-        ]
-        
-        methods = [
-            f"Our methodology employs a convolutional neural network architecture to process {term} data.",
-            f"We develop a TensorFlow-based framework for analyzing {term} patterns and trends.",
-            f"The proposed approach leverages recurrent neural networks to model sequential aspects of {term}."
-        ]
-        
-        experiments = [
-            f"Experiments on benchmark {term} datasets demonstrate the effectiveness of our approach.",
-            f"We evaluate our method on a diverse set of {term} tasks and compare with state-of-the-art techniques.",
-            f"Our empirical analysis shows significant improvements over existing methods in {term} performance metrics."
-        ]
-        
-        conclusions = [
-            f"The results highlight the potential of deep learning for advancing {term} research.",
-            f"Our findings contribute to the growing body of work on applying TensorFlow to {term} applications.",
-            f"This work opens new directions for future research on {term} using machine learning techniques."
-        ]
-        
-        # Randomly select one sentence from each category
-        abstract = " ".join([
-            random.choice(intros),
-            random.choice(methods),
-            random.choice(experiments),
-            random.choice(conclusions)
-        ])
-        
-        return abstract
-    
-    def _parse_arxiv_paper(self, paper) -> Dict[str, Any]:
-        """
-        Parse arXiv paper into standardized format
-        
-        Args:
-            paper: arXiv paper object
-            
-        Returns:
-            dict: Standardized paper dictionary
-        """
-        # This is a stub implementation
-        # In a real implementation, this would parse actual arXiv API results
-        return {
-            'title': paper.title,
-            'authors': [{'name': author.name, 'affiliation': author.affiliation} for author in paper.authors],
-            'abstract': paper.summary,
-            'url': paper.entry_id,
-            'pdf_url': paper.pdf_url,
-            'published_date': paper.published.isoformat() if hasattr(paper, 'published') else None,
-            'source': 'arxiv',
-            'external_id': self._extract_arxiv_id(paper.entry_id)
-        }
-    
-    def _extract_arxiv_id(self, url: str) -> str:
-        """
-        Extract arXiv ID from URL
-        
-        Args:
-            url (str): arXiv URL
-            
-        Returns:
-            str: arXiv ID
-        """
-        if 'arxiv.org/abs/' in url:
-            return url.split('arxiv.org/abs/')[-1]
-        return url

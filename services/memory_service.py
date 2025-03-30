@@ -1,223 +1,97 @@
 """
 Memory Service for AURA Research Assistant
-Handles long-term storage and retrieval of research data
 """
 
 import logging
 from typing import Dict, List, Any, Optional
-import json
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 class MemoryService:
     """
-    Service for managing long-term memory of research projects
-    
-    In a real implementation, this would use a vector database like Chroma or Pinecone
-    For this prototype, it provides basic memory functionality
+    Service for storing and retrieving memory in a vector database
     """
     
     def __init__(self):
-        """Initialize MemoryService"""
+        """Initialize the MemoryService"""
         logger.info("Initializing MemoryService")
-        self.memory_store = {}  # Project ID -> memory items
+        
+        # For demo purposes, use a simple dictionary to store memories
+        # In a production environment, this would use a vector database like ChromaDB or Pinecone
+        self.memories = {}
     
-    def add_memory_item(self, project_id: int, item_type: str, item: Dict[str, Any]) -> str:
+    def store_memory(self, memory_type: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """
-        Add an item to memory
+        Store a memory
         
         Args:
-            project_id (int): Project ID
-            item_type (str): Type of item (paper, hypothesis, experiment, etc.)
-            item (dict): Item data
+            memory_type (str): Type of memory (e.g., 'paper', 'hypothesis', 'experiment')
+            content (str): The memory content
+            metadata (dict, optional): Additional metadata about the memory
             
         Returns:
-            str: Item ID
+            str: Memory ID
         """
-        try:
-            # Create project entry if it doesn't exist
-            if project_id not in self.memory_store:
-                self.memory_store[project_id] = {
-                    'papers': {},
-                    'hypotheses': {},
-                    'experiments': {},
-                    'queries': {},
-                    'chat': []
-                }
-            
-            # Get item ID
-            item_id = item.get('id')
-            
-            # Add to appropriate collection
-            if item_type == 'paper':
-                self.memory_store[project_id]['papers'][item_id] = item
-            elif item_type == 'hypothesis':
-                self.memory_store[project_id]['hypotheses'][item_id] = item
-            elif item_type == 'experiment':
-                self.memory_store[project_id]['experiments'][item_id] = item
-            elif item_type == 'query':
-                self.memory_store[project_id]['queries'][item_id] = item
-            elif item_type == 'chat':
-                self.memory_store[project_id]['chat'].append(item)
-            
-            logger.info(f"Added {item_type} {item_id} to memory for project {project_id}")
-            return item_id
+        # Generate a simple memory ID
+        import random
+        import string
+        memory_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
         
-        except Exception as e:
-            logger.error(f"Error adding memory item: {e}")
-            return ""
+        # Store the memory
+        self.memories[memory_id] = {
+            'type': memory_type,
+            'content': content,
+            'metadata': metadata or {}
+        }
+        
+        return memory_id
     
-    def get_memory_item(self, project_id: int, item_type: str, item_id: str) -> Dict[str, Any]:
+    def retrieve_memory(self, memory_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get an item from memory
+        Retrieve a memory by ID
         
         Args:
-            project_id (int): Project ID
-            item_type (str): Type of item
-            item_id (str): Item ID
+            memory_id (str): The memory ID
             
         Returns:
-            dict: Item data
+            dict or None: The memory if found, None otherwise
         """
-        try:
-            if project_id not in self.memory_store:
-                return {}
-            
-            if item_type == 'paper':
-                return self.memory_store[project_id]['papers'].get(item_id, {})
-            elif item_type == 'hypothesis':
-                return self.memory_store[project_id]['hypotheses'].get(item_id, {})
-            elif item_type == 'experiment':
-                return self.memory_store[project_id]['experiments'].get(item_id, {})
-            elif item_type == 'query':
-                return self.memory_store[project_id]['queries'].get(item_id, {})
-            
-            return {}
-        
-        except Exception as e:
-            logger.error(f"Error getting memory item: {e}")
-            return {}
+        return self.memories.get(memory_id)
     
-    def search_memory(self, project_id: int, query: str, item_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    def search_similar(self, query: str, memory_type: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Search memory for items related to a query
+        Search for similar memories
         
         Args:
-            project_id (int): Project ID
-            query (str): Search query
-            item_type (str, optional): Type of item to search for
+            query (str): The search query
+            memory_type (str, optional): Filter by memory type
+            limit (int): Maximum number of results to return
             
         Returns:
-            list: List of matching items
+            list: List of similar memories
         """
-        try:
-            if project_id not in self.memory_store:
-                return []
-            
-            results = []
-            
-            # In a real implementation, this would use vector similarity search
-            # For this prototype, it does a simple text search
-            
-            # Construct collection to search
-            collections = {}
-            if item_type == 'paper':
-                collections = {'papers': self.memory_store[project_id]['papers']}
-            elif item_type == 'hypothesis':
-                collections = {'hypotheses': self.memory_store[project_id]['hypotheses']}
-            elif item_type == 'experiment':
-                collections = {'experiments': self.memory_store[project_id]['experiments']}
-            elif item_type == 'query':
-                collections = {'queries': self.memory_store[project_id]['queries']}
-            else:
-                collections = {
-                    'papers': self.memory_store[project_id]['papers'],
-                    'hypotheses': self.memory_store[project_id]['hypotheses'],
-                    'experiments': self.memory_store[project_id]['experiments'],
-                    'queries': self.memory_store[project_id]['queries']
-                }
-            
-            # Search each collection
-            query_terms = query.lower().split()
-            for collection_name, collection in collections.items():
-                for item_id, item in collection.items():
-                    item_text = json.dumps(item).lower()
-                    match_score = 0
-                    
-                    for term in query_terms:
-                        if term in item_text:
-                            match_score += 1
-                    
-                    if match_score > 0:
-                        results.append({
-                            'id': item_id,
-                            'type': collection_name[:-1],  # Remove 's' from collection name
-                            'score': match_score / len(query_terms),
-                            'data': item
-                        })
-            
-            # Sort by score (descending)
-            results.sort(key=lambda x: x['score'], reverse=True)
-            
-            return results
+        # For demo purposes, just do a simple text match
+        # In a production environment, this would use vector embeddings and similarity search
         
-        except Exception as e:
-            logger.error(f"Error searching memory: {e}")
-            return []
-    
-    def get_chat_history(self, project_id: int, limit: int = 50) -> List[Dict[str, Any]]:
-        """
-        Get chat history for a project
+        query_lower = query.lower()
+        results = []
         
-        Args:
-            project_id (int): Project ID
-            limit (int): Maximum number of messages to return
+        for memory_id, memory in self.memories.items():
+            if memory_type and memory['type'] != memory_type:
+                continue
             
-        Returns:
-            list: List of chat messages
-        """
-        try:
-            if project_id not in self.memory_store:
-                return []
-            
-            # Get chat history (most recent first)
-            chat_history = list(reversed(self.memory_store[project_id]['chat']))
-            
-            # Limit the number of messages
-            chat_history = chat_history[:limit]
-            
-            return chat_history
-        
-        except Exception as e:
-            logger.error(f"Error getting chat history: {e}")
-            return []
-    
-    def clear_memory(self, project_id: int) -> bool:
-        """
-        Clear memory for a project
-        
-        Args:
-            project_id (int): Project ID
-            
-        Returns:
-            bool: Success flag
-        """
-        try:
-            if project_id in self.memory_store:
-                self.memory_store[project_id] = {
-                    'papers': {},
-                    'hypotheses': {},
-                    'experiments': {},
-                    'queries': {},
-                    'chat': []
-                }
+            content_lower = memory['content'].lower()
+            if query_lower in content_lower:
+                # Calculate a simple similarity score
+                similarity = content_lower.count(query_lower) / len(content_lower)
                 
-                logger.info(f"Cleared memory for project {project_id}")
-                return True
-            
-            return False
+                results.append({
+                    'id': memory_id,
+                    'memory': memory,
+                    'similarity': similarity
+                })
         
-        except Exception as e:
-            logger.error(f"Error clearing memory: {e}")
-            return False
+        # Sort by similarity and limit results
+        results.sort(key=lambda x: x['similarity'], reverse=True)
+        return results[:limit]
