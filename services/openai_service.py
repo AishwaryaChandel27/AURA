@@ -191,6 +191,92 @@ class OpenAIService:
             logger.error(f"Error generating hypothesis: {e}")
             raise
     
+    def analyze_sentiment(self, text: str) -> Dict[str, Any]:
+        """
+        Analyze the sentiment of a text
+        
+        Args:
+            text (str): The text to analyze
+            
+        Returns:
+            dict: Sentiment analysis results including rating and confidence
+        """
+        if not self.client:
+            raise ValueError("OpenAI client not initialized. Please provide a valid API key.")
+            
+        try:
+            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+            # do not change this unless explicitly requested by the user
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a sentiment analysis expert. "
+                        + "Analyze the sentiment of the text and provide a rating "
+                        + "from 1 to 5 stars and a confidence score between 0 and 1. "
+                        + "Respond with JSON in this format: "
+                        + "{'rating': number, 'confidence': number}",
+                    },
+                    {"role": "user", "content": text},
+                ],
+                response_format={"type": "json_object"},
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            
+            return {
+                "rating": max(1, min(5, round(result.get("rating", 3)))),
+                "confidence": max(0, min(1, result.get("confidence", 0.5))),
+            }
+                
+        except Exception as e:
+            logger.error(f"Error analyzing sentiment: {e}")
+            raise
+
+    def analyze_image(self, base64_image: str) -> str:
+        """
+        Analyze an image using OpenAI's multimodal capabilities
+        
+        Args:
+            base64_image (str): Base64-encoded image data
+            
+        Returns:
+            str: Image analysis results
+        """
+        if not self.client:
+            raise ValueError("OpenAI client not initialized. Please provide a valid API key.")
+            
+        try:
+            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+            # do not change this unless explicitly requested by the user
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Analyze this image in detail and describe its key "
+                                + "elements, context, and any notable aspects.",
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                            },
+                        ],
+                    }
+                ],
+                max_tokens=500,
+            )
+            
+            return response.choices[0].message.content
+                
+        except Exception as e:
+            logger.error(f"Error analyzing image: {e}")
+            raise
+
     def design_experiment(self, hypothesis: str, papers: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Design an experiment to test a hypothesis
