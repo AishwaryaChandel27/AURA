@@ -4,244 +4,149 @@ Agent responsible for retrieving academic papers from various sources
 """
 
 import logging
+import random
 from typing import Dict, List, Any, Optional
-from datetime import datetime
-import json
+from datetime import datetime, timedelta
 
-# Import models (for database operations)
-from app import db
-from models import Paper, ResearchProject
+from services.arxiv_service import ArxivService
+from services.semantic_scholar_service import SemanticScholarService
 
-# Configure logging
+# Set up logging
 logger = logging.getLogger(__name__)
 
 class DataRetrievalAgent:
     """
-    Agent responsible for retrieving academic papers from various sources
+    Agent responsible for retrieving research papers from various sources
     """
     
     def __init__(self):
         """Initialize the DataRetrievalAgent"""
-        logger.info("Initializing DataRetrievalAgent")
-        self.initialized = True
+        self.arxiv_service = ArxivService()
+        self.semantic_scholar_service = SemanticScholarService()
     
-    def search_papers(self, query: str, max_results: Optional[int] = 10, sources: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    def search_papers(self, query: str, max_results: int = 10, sources: List[str] = None) -> List[Dict[str, Any]]:
         """
-        Search for papers across multiple sources
+        Search for papers from various sources
         
         Args:
-            query (str): Search query
-            max_results (int, optional): Maximum number of results to return
-            sources (list, optional): List of sources to search ['arxiv', 'semantic_scholar']
-        
+            query (str): The search query
+            max_results (int): Maximum number of results to return
+            sources (list, optional): List of sources to search (e.g., 'arxiv', 'semantic_scholar')
+            
         Returns:
             list: List of paper dictionaries
         """
-        logger.info(f"Searching for papers with query: {query}")
-        
-        # Default sources if not specified
-        if not sources:
-            sources = ['arxiv', 'semantic_scholar']
-        
-        # Initialize results
-        results = []
-        
         try:
-            # For now, we'll use a simplified example
-            # In a real implementation, we would connect to actual academic APIs
-            # Simulated results for demonstration purposes
-            simulated_results = [
-                {
-                    'id': 1,
-                    'title': f"TensorFlow Application in {query} Research",
-                    'authors': ['A. Researcher', 'B. Scientist'],
-                    'abstract': f"This paper explores the application of TensorFlow in {query} research. We demonstrate how deep learning approaches can be used to solve complex problems in this domain.",
-                    'url': 'https://example.com/paper1',
-                    'pdf_url': 'https://example.com/paper1.pdf',
-                    'published_date': datetime.now().isoformat(),
-                    'source': 'arxiv',
-                    'external_id': 'arxiv:2023.12345'
-                },
-                {
-                    'id': 2,
-                    'title': f"Advanced Neural Networks for {query}",
-                    'authors': ['C. Engineer', 'D. Developer'],
-                    'abstract': f"In this research, we present a novel neural network architecture designed specifically for {query} applications. Our approach demonstrates significant improvements over existing methods.",
-                    'url': 'https://example.com/paper2',
-                    'pdf_url': 'https://example.com/paper2.pdf',
-                    'published_date': datetime.now().isoformat(),
-                    'source': 'semantic_scholar',
-                    'external_id': 'ss:98765'
-                }
-            ]
+            # Default sources if none provided
+            if sources is None:
+                sources = ['arxiv', 'semantic_scholar']
             
-            # Add to results
-            results.extend(simulated_results[:max_results])
+            # Temporary using mock data for development/testing
+            papers = self._generate_sample_papers(query, max_results or 10)
             
-            # Log results
-            logger.info(f"Found {len(results)} papers for query: {query}")
+            # Append source information
+            for paper in papers:
+                paper['source'] = random.choice(sources)
             
-            return results
+            return papers
         
         except Exception as e:
-            logger.error(f"Error searching for papers: {e}")
+            logger.error(f"Error searching papers: {e}")
             return []
     
-    def get_paper_details(self, paper_id: str, source: str) -> Dict[str, Any]:
+    def retrieve_paper_details(self, paper_id: str, source: str) -> Dict[str, Any]:
         """
-        Get detailed information for a specific paper
+        Retrieve detailed information for a specific paper
         
         Args:
-            paper_id (str): Paper ID
-            source (str): Paper source ('arxiv' or 'semantic_scholar')
-        
+            paper_id (str): The ID of the paper
+            source (str): The source of the paper (e.g., 'arxiv', 'semantic_scholar')
+            
         Returns:
             dict: Paper details
         """
-        logger.info(f"Getting paper details for {source}:{paper_id}")
-        
         try:
-            # Here we would connect to the appropriate API based on the source
-            # For demonstration, return a template
-            paper_details = {
-                'id': paper_id,
-                'title': f"Paper from {source}",
-                'authors': ['Example Author'],
-                'abstract': "This is an example paper abstract.",
-                'url': f"https://example.com/{source}/{paper_id}",
-                'pdf_url': f"https://example.com/{source}/{paper_id}.pdf",
-                'published_date': datetime.now().isoformat(),
-                'source': source,
-                'external_id': f"{source}:{paper_id}"
-            }
-            
-            return paper_details
+            if source == 'arxiv':
+                return self.arxiv_service.get_paper(paper_id)
+            elif source == 'semantic_scholar':
+                return self.semantic_scholar_service.get_paper(paper_id)
+            else:
+                return {}
         
         except Exception as e:
-            logger.error(f"Error getting paper details: {e}")
+            logger.error(f"Error retrieving paper details: {e}")
             return {}
     
-    def add_paper_to_project(self, paper_data: Dict[str, Any], project_id: int) -> Optional[int]:
+    def _generate_sample_papers(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """
-        Add a paper to a project
+        Generate sample papers for testing (will be replaced with actual API calls)
         
         Args:
-            paper_data (dict): Paper data
-            project_id (int): Project ID
-        
-        Returns:
-            int: Paper ID
-        """
-        logger.info(f"Adding paper to project {project_id}: {paper_data.get('title', 'Unknown title')}")
-        
-        try:
-            # Check if project exists
-            project = ResearchProject.query.get(project_id)
-            if not project:
-                logger.error(f"Project {project_id} not found")
-                return None
+            query (str): The search query
+            max_results (int): Maximum number of results to return
             
-            # Check if paper with same external_id already exists in this project
-            if 'external_id' in paper_data and paper_data['external_id']:
-                existing_paper = Paper.query.filter_by(
-                    project_id=project_id,
-                    external_id=paper_data['external_id']
-                ).first()
-                
-                if existing_paper:
-                    logger.info(f"Paper with external_id {paper_data['external_id']} already exists in project {project_id}")
-                    return existing_paper.id
-            
-            # Create new paper
-            paper = Paper(
-                title=paper_data.get('title', 'Unknown Title'),
-                abstract=paper_data.get('abstract', ''),
-                url=paper_data.get('url', ''),
-                pdf_url=paper_data.get('pdf_url', ''),
-                source=paper_data.get('source', 'manual'),
-                external_id=paper_data.get('external_id', ''),
-                project_id=project_id
-            )
-            
-            # Set published date if provided
-            if paper_data.get('published_date'):
-                try:
-                    if isinstance(paper_data['published_date'], str):
-                        paper.published_date = datetime.fromisoformat(paper_data['published_date'])
-                    else:
-                        paper.published_date = paper_data['published_date']
-                except (ValueError, TypeError):
-                    pass
-            
-            # Set authors if provided
-            if 'authors' in paper_data and hasattr(paper, 'set_authors'):
-                paper.set_authors(paper_data['authors'])
-            
-            # Set metadata if provided
-            if 'metadata' in paper_data and hasattr(paper, 'set_metadata'):
-                paper.set_metadata(paper_data['metadata'])
-            
-            # Save to database
-            db.session.add(paper)
-            db.session.commit()
-            
-            logger.info(f"Added paper {paper.id} to project {project_id}")
-            return paper.id
-        
-        except Exception as e:
-            logger.error(f"Error adding paper to project: {e}")
-            db.session.rollback()
-            return None
-    
-    def search_memory(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
-        """
-        Search previously retrieved papers in memory
-        
-        Args:
-            query (str): Search query
-            max_results (int, optional): Maximum number of results to return
-        
         Returns:
             list: List of paper dictionaries
         """
-        logger.info(f"Searching memory for query: {query}")
+        papers = []
         
-        try:
-            # In a production system, this would use a vector database or similar
-            # For this demo, we'll just do a basic keyword search in the database
-            
-            # Search in titles and abstracts
-            keyword = f"%{query}%"
-            papers = Paper.query.filter(
-                (Paper.title.like(keyword)) | (Paper.abstract.like(keyword))
-            ).limit(max_results).all()
-            
-            # Convert to dictionaries
-            results = []
-            for paper in papers:
-                paper_dict = {
-                    'id': paper.id,
-                    'title': paper.title,
-                    'abstract': paper.abstract,
-                    'url': paper.url,
-                    'pdf_url': paper.pdf_url,
-                    'source': paper.source,
-                    'external_id': paper.external_id
-                }
-                
-                # Add authors if available
-                if hasattr(paper, 'get_authors'):
-                    paper_dict['authors'] = paper.get_authors()
-                
-                # Add published date if available
-                if paper.published_date:
-                    paper_dict['published_date'] = paper.published_date.isoformat()
-                
-                results.append(paper_dict)
-            
-            logger.info(f"Found {len(results)} papers in memory for query: {query}")
-            return results
+        # Create sample paper titles and authors based on the query
+        query_terms = query.split()
+        base_titles = [
+            "Advances in {term} Research",
+            "A Survey of {term} Methods",
+            "Towards Efficient {term} Models",
+            "{term} Analysis and Applications",
+            "Deep Learning for {term}",
+            "Neural Network Approaches to {term}",
+            "Reinforcement Learning in {term} Domains",
+            "Multi-Agent Systems for {term}",
+            "Benchmark Datasets for {term}",
+            "Supervised Learning Techniques for {term}"
+        ]
         
-        except Exception as e:
-            logger.error(f"Error searching memory: {e}")
-            return []
+        # Generate random base dates within the last 5 years
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=5*365)
+        
+        # Generate sample papers
+        for i in range(min(max_results, len(base_titles))):
+            term = random.choice(query_terms) if query_terms else "Research"
+            
+            # Create a random publication date
+            days_diff = (end_date - start_date).days
+            random_days = random.randint(0, days_diff)
+            pub_date = start_date + timedelta(days=random_days)
+            
+            # Create a random paper
+            paper = {
+                'title': base_titles[i].format(term=term.capitalize()),
+                'authors': self._generate_sample_authors(random.randint(1, 4)),
+                'abstract': f"This paper presents a novel approach to {term}. "
+                           f"We propose a new method for addressing challenges in {term} research. "
+                           f"Our experiments show significant improvements over existing methods.",
+                'url': f"https://example.org/papers/{i+1}",
+                'pdf_url': f"https://example.org/papers/{i+1}/pdf",
+                'published_date': pub_date.isoformat(),
+                'external_id': f"paper_{i+1}"
+            }
+            
+            papers.append(paper)
+        
+        return papers
+    
+    def _generate_sample_authors(self, num_authors: int) -> List[Dict[str, str]]:
+        """Generate sample authors"""
+        first_names = ["John", "Jane", "Michael", "Emily", "David", "Sarah", "Robert", "Lisa"]
+        last_names = ["Smith", "Johnson", "Brown", "Taylor", "Miller", "Wilson", "Moore", "Anderson"]
+        
+        authors = []
+        for i in range(num_authors):
+            first_name = random.choice(first_names)
+            last_name = random.choice(last_names)
+            authors.append({
+                'name': f"{first_name} {last_name}",
+                'affiliation': f"University of Research {i+1}"
+            })
+        
+        return authors

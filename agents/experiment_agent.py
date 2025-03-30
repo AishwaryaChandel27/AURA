@@ -4,12 +4,11 @@ Agent responsible for designing experiments to test hypotheses
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
-# Import services
-from services import openai_service
+from services.openai_service import OpenAIService
 
-# Configure logging
+# Set up logging
 logger = logging.getLogger(__name__)
 
 class ExperimentAgent:
@@ -19,10 +18,9 @@ class ExperimentAgent:
     
     def __init__(self):
         """Initialize the ExperimentAgent"""
-        logger.info("Initializing ExperimentAgent")
-        self.initialized = True
+        self.openai_service = OpenAIService()
     
-    def design_experiment(self, hypothesis, papers=None):
+    def design_experiment(self, hypothesis: str, papers: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Design an experiment to test a hypothesis
         
@@ -33,27 +31,34 @@ class ExperimentAgent:
         Returns:
             dict: Experiment design details
         """
-        logger.info(f"Designing experiment for hypothesis: {hypothesis}")
-        
         try:
-            # Use OpenAI service to design experiment
-            experiment_design = openai_service.design_experiment({
-                'hypothesis_text': hypothesis
-            })
+            # Use default empty list if papers is None
+            papers_data = papers or []
             
-            return experiment_design
+            # Use the OpenAI service to design the experiment
+            experiment_data = self.openai_service.design_experiment(hypothesis, papers_data)
+            
+            return {
+                'title': experiment_data.get('title', 'Untitled Experiment'),
+                'methodology': experiment_data.get('methodology', ''),
+                'variables': experiment_data.get('variables', {'independent': [], 'dependent': []}),
+                'controls': experiment_data.get('controls', ''),
+                'expected_outcomes': experiment_data.get('expected_outcomes', ''),
+                'limitations': experiment_data.get('limitations', '')
+            }
+        
         except Exception as e:
             logger.error(f"Error designing experiment: {e}")
             return {
-                'title': f"Experiment for testing: {hypothesis[:50]}...",
-                'methodology': "Error generating methodology.",
-                'variables': {},
-                'controls': "Error generating controls.",
-                'expected_outcomes': "Error generating expected outcomes.",
-                'limitations': "Error generating limitations."
+                'title': 'Error Designing Experiment',
+                'methodology': f"Error: {str(e)}",
+                'variables': {'independent': [], 'dependent': []},
+                'controls': '',
+                'expected_outcomes': '',
+                'limitations': 'Could not design experiment due to an error.'
             }
     
-    def evaluate_experiment(self, experiment_design, evaluation_criteria=None):
+    def evaluate_experiment(self, experiment_design: Dict[str, Any], evaluation_criteria: List[str] = None) -> Dict[str, Any]:
         """
         Evaluate an experiment design based on criteria like feasibility, validity, etc.
         
@@ -64,58 +69,62 @@ class ExperimentAgent:
         Returns:
             dict: Evaluation results
         """
-        logger.info(f"Evaluating experiment: {experiment_design.get('title', 'Unknown experiment')}")
-        
         try:
-            # For a real implementation, this would use more sophisticated criteria
-            # For this demo, we'll just return a simple evaluation
+            # Default evaluation criteria if none provided
+            if evaluation_criteria is None:
+                evaluation_criteria = [
+                    'feasibility', 'internal_validity', 'external_validity', 
+                    'reliability', 'ethical_considerations'
+                ]
             
-            # Check for key components
-            has_methodology = bool(experiment_design.get('methodology', '').strip())
-            has_variables = bool(experiment_design.get('variables', {}))
-            has_controls = bool(experiment_design.get('controls', '').strip())
-            has_expected_outcomes = bool(experiment_design.get('expected_outcomes', '').strip())
+            # Create a prompt for evaluation
+            prompt = f"""
+            Please evaluate the following experiment design based on these criteria: {', '.join(evaluation_criteria)}
             
-            # Calculate completeness score
-            components = [has_methodology, has_variables, has_controls, has_expected_outcomes]
-            completeness_score = sum(components) / len(components)
+            Experiment Title: {experiment_design.get('title', 'Untitled Experiment')}
             
-            # Generate evaluation
-            evaluation = {
-                'completeness_score': completeness_score,
-                'has_methodology': has_methodology,
-                'has_variables': has_variables,
-                'has_controls': has_controls,
-                'has_expected_outcomes': has_expected_outcomes,
-                'evaluation': 'This experiment design appears to be ' + 
-                             ('well-defined' if completeness_score > 0.8 else 
-                              'mostly complete' if completeness_score > 0.6 else 
-                              'partially defined' if completeness_score > 0.4 else 
-                              'incomplete'),
-                'recommendations': []
+            Methodology:
+            {experiment_design.get('methodology', 'No methodology provided.')}
+            
+            Variables:
+            Independent: {experiment_design.get('variables', {}).get('independent', [])}
+            Dependent: {experiment_design.get('variables', {}).get('dependent', [])}
+            
+            Controls:
+            {experiment_design.get('controls', 'No controls specified.')}
+            
+            Expected Outcomes:
+            {experiment_design.get('expected_outcomes', 'No expected outcomes specified.')}
+            
+            Provide a critical evaluation in JSON format with the following structure:
+            {
+                "overall_score": Float (0-1),
+                "strengths": [list of strengths],
+                "weaknesses": [list of weaknesses],
+                "recommendations": [list of recommendations for improvement]
             }
+            """
             
-            # Add recommendations for improvement
-            if not has_methodology:
-                evaluation['recommendations'].append('Add a detailed methodology section.')
-            if not has_variables:
-                evaluation['recommendations'].append('Define independent and dependent variables.')
-            if not has_controls:
-                evaluation['recommendations'].append('Specify control measures to ensure validity.')
-            if not has_expected_outcomes:
-                evaluation['recommendations'].append('Describe expected outcomes and their interpretation.')
+            # Get evaluation from OpenAI
+            evaluation = self.openai_service.generate_structured_response(prompt)
             
-            return evaluation
+            return {
+                'overall_score': evaluation.get('overall_score', 0.0),
+                'strengths': evaluation.get('strengths', []),
+                'weaknesses': evaluation.get('weaknesses', []),
+                'recommendations': evaluation.get('recommendations', [])
+            }
         
         except Exception as e:
             logger.error(f"Error evaluating experiment: {e}")
             return {
-                'completeness_score': 0.0,
-                'evaluation': 'Error evaluating experiment design.',
-                'recommendations': ['Unable to provide recommendations due to an error.']
+                'overall_score': 0.0,
+                'strengths': [],
+                'weaknesses': [f"Error during evaluation: {str(e)}"],
+                'recommendations': ['Review the experiment design and try again.']
             }
     
-    def suggest_measurements(self, experiment_design):
+    def suggest_measurements(self, experiment_design: Dict[str, Any]) -> Dict[str, Any]:
         """
         Suggest specific measurements and instruments for an experiment
         
@@ -125,48 +134,50 @@ class ExperimentAgent:
         Returns:
             dict: Suggested measurements and instruments
         """
-        logger.info(f"Suggesting measurements for experiment: {experiment_design.get('title', 'Unknown experiment')}")
-        
         try:
-            # For a real implementation, this would use domain-specific knowledge
-            # For this demo, we'll just return a template
+            # Extract dependent variables
+            dependent_vars = experiment_design.get('variables', {}).get('dependent', [])
             
-            # Extract variables if available
-            variables = experiment_design.get('variables', {})
-            dependent_vars = variables.get('dependent', [])
+            # Create a prompt for suggesting measurements
+            prompt = f"""
+            Based on the following experiment design, suggest appropriate measurements, instruments, and data collection methods:
             
-            # Generate measurement suggestions
-            measurements = []
+            Experiment Title: {experiment_design.get('title', 'Untitled Experiment')}
             
-            if dependent_vars:
-                for var in dependent_vars:
-                    measurements.append({
-                        'variable': var,
-                        'instrument': f"Standard instrument for measuring {var}",
-                        'frequency': "Every experimental trial",
-                        'data_type': "Numeric",
-                        'analysis_method': "Statistical comparison between groups"
-                    })
-            else:
-                # Default suggestion
-                measurements.append({
-                    'variable': "Primary outcome",
-                    'instrument': "Appropriate measurement instrument",
-                    'frequency': "Pre and post intervention",
-                    'data_type': "Numeric",
-                    'analysis_method': "Statistical comparison between groups"
-                })
+            Methodology:
+            {experiment_design.get('methodology', 'No methodology provided.')}
+            
+            Variables to measure: {dependent_vars if dependent_vars else 'No dependent variables specified.'}
+            
+            Provide suggestions in JSON format with the following structure:
+            {{
+                "measurements": [
+                    {{
+                        "variable": String (variable name),
+                        "method": String (measurement method),
+                        "instrument": String (suggested instrument),
+                        "data_type": String (e.g., "continuous", "categorical", "binary"),
+                        "units": String (if applicable)
+                    }}
+                ],
+                "data_collection_procedures": String (description of procedures),
+                "reliability_considerations": String (reliability considerations)
+            }}
+            """
+            
+            # Get suggestions from OpenAI
+            suggestions = self.openai_service.generate_structured_response(prompt)
             
             return {
-                'suggested_measurements': measurements,
-                'data_collection_protocol': "Collect data systematically to ensure reliability and validity.",
-                'quality_control': "Implement standard quality control procedures to minimize measurement errors."
+                'measurements': suggestions.get('measurements', []),
+                'data_collection_procedures': suggestions.get('data_collection_procedures', ''),
+                'reliability_considerations': suggestions.get('reliability_considerations', '')
             }
         
         except Exception as e:
             logger.error(f"Error suggesting measurements: {e}")
             return {
-                'suggested_measurements': [],
-                'data_collection_protocol': "Error generating protocol.",
-                'quality_control': "Error generating quality control guidelines."
+                'measurements': [],
+                'data_collection_procedures': f"Error suggesting measurements: {str(e)}",
+                'reliability_considerations': ''
             }

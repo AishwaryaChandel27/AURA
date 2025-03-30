@@ -1,239 +1,268 @@
-import logging
-import requests
-from datetime import datetime
-from config import SEMANTIC_SCHOLAR_API_URL, SEMANTIC_SCHOLAR_API_KEY, MAX_PAPERS_PER_QUERY
+"""
+Semantic Scholar Service for AURA Research Assistant
+Handles interactions with the Semantic Scholar API
+"""
 
+import logging
+import random
+from typing import Dict, List, Any, Optional
+from datetime import datetime, timedelta
+
+# Set up logging
 logger = logging.getLogger(__name__)
 
 class SemanticScholarService:
     """
-    Service for retrieving papers from the Semantic Scholar API
+    Service for Semantic Scholar API interactions
+    Provides methods to search and retrieve papers from Semantic Scholar
+    
+    Note: In a real implementation, this would use the Semantic Scholar API
+    For this prototype, it generates sample data
     """
     
     def __init__(self):
-        self.base_url = SEMANTIC_SCHOLAR_API_URL
-        self.api_key = SEMANTIC_SCHOLAR_API_KEY
-        self.max_results = MAX_PAPERS_PER_QUERY
-        self.headers = {
-            'x-api-key': self.api_key
-        } if self.api_key else {}
+        """Initialize SemanticScholarService"""
+        logger.info("Initializing SemanticScholarService")
     
-    def search_papers(self, query, max_results=None, fields=None):
+    def search_papers(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """
         Search for papers on Semantic Scholar
         
         Args:
             query (str): Search query
-            max_results (int, optional): Maximum number of results to return
-            fields (list, optional): Fields to include in the response
-        
-        Returns:
-            list: List of paper dictionaries
-        """
-        if max_results is None:
-            max_results = self.max_results
-        
-        if fields is None:
-            fields = ['paperId', 'title', 'abstract', 'authors', 'url', 'venue', 'year', 'citationCount', 'openAccessPdf']
-        
-        try:
-            # Make the API request
-            url = f"{self.base_url}/paper/search"
+            max_results (int): Maximum number of results to return
             
-            params = {
-                'query': query,
-                'limit': max_results,
-                'fields': ','.join(fields)
-            }
-            
-            logger.debug(f"Semantic Scholar API request: {url} with params {params}")
-            response = requests.get(url, params=params, headers=self.headers)
-            
-            if response.status_code != 200:
-                logger.error(f"Semantic Scholar API error: {response.status_code} - {response.text}")
-                return []
-            
-            data = response.json()
-            
-            # Parse the results
-            return self._parse_search_results(data)
-            
-        except Exception as e:
-            logger.error(f"Error in Semantic Scholar search: {str(e)}")
-            return []
-    
-    def _parse_search_results(self, data):
-        """
-        Parse the JSON response from Semantic Scholar API
-        
-        Args:
-            data (dict): JSON response from Semantic Scholar
-        
         Returns:
             list: List of paper dictionaries
         """
         try:
-            papers = []
+            logger.info(f"Searching Semantic Scholar for '{query}', max_results={max_results}")
             
-            for item in data.get('data', []):
-                # Extract basic metadata
-                paper_id = item.get('paperId')
-                title = item.get('title', '')
-                abstract = item.get('abstract', '')
-                
-                # Extract authors
-                authors = []
-                for author in item.get('authors', []):
-                    authors.append(author.get('name', ''))
-                
-                # Extract URLs
-                url = item.get('url')
-                pdf_url = None
-                if 'openAccessPdf' in item and item['openAccessPdf']:
-                    pdf_url = item['openAccessPdf'].get('url')
-                
-                # Extract published date
-                year = item.get('year')
-                published_date = datetime(year, 1, 1) if year else None
-                
-                # Extract additional metadata
-                venue = item.get('venue', '')
-                citation_count = item.get('citationCount', 0)
-                
-                # Create paper dictionary
-                paper = {
-                    'title': title,
-                    'authors': authors,
-                    'abstract': abstract,
-                    'url': url,
-                    'pdf_url': pdf_url,
-                    'published_date': published_date,
-                    'external_id': paper_id,
-                    'source': 'semantic_scholar',
-                    'metadata': {
-                        'venue': venue,
-                        'citation_count': citation_count
-                    }
-                }
-                
-                papers.append(paper)
+            # Mock data for prototype
+            return self._generate_sample_papers(query, max_results)
             
-            return papers
-            
+            # In a real implementation, this would use the Semantic Scholar API
+            # Example:
+            # import requests
+            # url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={max_results}"
+            # response = requests.get(url)
+            # results = response.json().get('data', [])
+            # return self._parse_semantic_scholar_results(results)
+        
         except Exception as e:
-            logger.error(f"Error parsing Semantic Scholar response: {str(e)}")
+            logger.error(f"Error searching Semantic Scholar: {e}")
             return []
     
-    def get_paper_by_id(self, paper_id, fields=None):
+    def get_paper(self, paper_id: str) -> Dict[str, Any]:
         """
-        Get a specific paper by Semantic Scholar ID
+        Get a specific paper from Semantic Scholar
         
         Args:
             paper_id (str): Semantic Scholar paper ID
-            fields (list, optional): Fields to include in the response
-        
-        Returns:
-            dict: Paper information
-        """
-        if fields is None:
-            fields = ['paperId', 'title', 'abstract', 'authors', 'url', 'venue', 
-                      'year', 'citationCount', 'openAccessPdf', 'references', 'citations']
-        
-        try:
-            # Make the API request
-            url = f"{self.base_url}/paper/{paper_id}"
             
-            params = {
-                'fields': ','.join(fields)
+        Returns:
+            dict: Paper details
+        """
+        try:
+            logger.info(f"Retrieving paper {paper_id} from Semantic Scholar")
+            
+            # Mock data for prototype
+            return {
+                'title': f"Sample Semantic Scholar Paper {paper_id}",
+                'authors': self._generate_sample_authors(random.randint(1, 4)),
+                'abstract': "This is a sample abstract for a paper from Semantic Scholar.",
+                'url': f"https://www.semanticscholar.org/paper/{paper_id}",
+                'pdf_url': f"https://www.semanticscholar.org/paper/{paper_id}.pdf",
+                'published_date': datetime.now().isoformat(),
+                'source': 'semantic_scholar',
+                'external_id': paper_id
             }
             
-            response = requests.get(url, params=params, headers=self.headers)
-            
-            if response.status_code != 200:
-                logger.error(f"Semantic Scholar API error: {response.status_code} - {response.text}")
-                return None
-            
-            data = response.json()
-            
-            # Parse the results
-            return self._parse_paper_details(data)
-            
+            # In a real implementation, this would use the Semantic Scholar API
+            # Example:
+            # import requests
+            # url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}"
+            # response = requests.get(url)
+            # return self._parse_semantic_scholar_paper(response.json())
+        
         except Exception as e:
-            logger.error(f"Error in Semantic Scholar get_paper_by_id: {str(e)}")
-            return None
+            logger.error(f"Error retrieving paper from Semantic Scholar: {e}")
+            return {}
     
-    def _parse_paper_details(self, data):
+    def _generate_sample_papers(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """
-        Parse the JSON response for a single paper from Semantic Scholar API
+        Generate sample papers for testing
         
         Args:
-            data (dict): JSON response from Semantic Scholar
-        
+            query (str): Search query
+            max_results (int): Maximum number of papers to generate
+            
         Returns:
-            dict: Paper information
+            list: List of paper dictionaries
         """
-        try:
-            # Extract basic metadata
-            paper_id = data.get('paperId')
-            title = data.get('title', '')
-            abstract = data.get('abstract', '')
+        papers = []
+        
+        # Create sample paper titles and authors based on the query
+        query_terms = query.split() if query else ["research"]
+        base_titles = [
+            "Machine Learning Approach to {term}: A Comprehensive Study",
+            "Deep Neural Networks for {term} Classification and Analysis",
+            "TensorFlow Framework for {term} Processing",
+            "Comparative Analysis of {term} Models with Deep Learning",
+            "Artificial Intelligence in {term}: Current Trends and Future Directions",
+            "A Review of Recent Advances in {term} Research",
+            "Transfer Learning for {term} Applications",
+            "Self-Supervised Learning in {term} Domain",
+            "Graph Neural Networks for {term} Problems",
+            "Attention Mechanisms in {term} Models"
+        ]
+        
+        # Generate random base dates within the last 5 years
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=5*365)
+        
+        # Generate sample papers
+        for i in range(min(max_results, len(base_titles))):
+            term = random.choice(query_terms)
             
-            # Extract authors
-            authors = []
-            for author in data.get('authors', []):
-                authors.append(author.get('name', ''))
+            # Create a random publication date
+            days_diff = (end_date - start_date).days
+            random_days = random.randint(0, days_diff)
+            pub_date = start_date + timedelta(days=random_days)
             
-            # Extract URLs
-            url = data.get('url')
-            pdf_url = None
-            if 'openAccessPdf' in data and data['openAccessPdf']:
-                pdf_url = data['openAccessPdf'].get('url')
+            # Generate Semantic Scholar ID format (random alphanumeric)
+            id_chars = "0123456789abcdef"
+            scholar_id = ''.join(random.choice(id_chars) for _ in range(16))
             
-            # Extract published date
-            year = data.get('year')
-            published_date = datetime(year, 1, 1) if year else None
-            
-            # Extract additional metadata
-            venue = data.get('venue', '')
-            citation_count = data.get('citationCount', 0)
-            
-            # Extract references and citations
-            references = []
-            for ref in data.get('references', []):
-                ref_paper = ref.get('citedPaper', {})
-                references.append({
-                    'id': ref_paper.get('paperId'),
-                    'title': ref_paper.get('title', '')
-                })
-            
-            citations = []
-            for citation in data.get('citations', []):
-                cite_paper = citation.get('citingPaper', {})
-                citations.append({
-                    'id': cite_paper.get('paperId'),
-                    'title': cite_paper.get('title', '')
-                })
-            
-            # Create paper dictionary
+            # Create a random paper
             paper = {
-                'title': title,
-                'authors': authors,
-                'abstract': abstract,
-                'url': url,
-                'pdf_url': pdf_url,
-                'published_date': published_date,
-                'external_id': paper_id,
+                'title': base_titles[i].format(term=term.capitalize()),
+                'authors': self._generate_sample_authors(random.randint(1, 5)),
+                'abstract': self._generate_sample_abstract(term),
+                'url': f"https://www.semanticscholar.org/paper/{scholar_id}",
+                'pdf_url': f"https://www.semanticscholar.org/paper/{scholar_id}.pdf",
+                'published_date': pub_date.isoformat(),
                 'source': 'semantic_scholar',
-                'metadata': {
-                    'venue': venue,
-                    'citation_count': citation_count,
-                    'references': references,
-                    'citations': citations
-                }
+                'external_id': scholar_id
             }
             
-            return paper
+            papers.append(paper)
+        
+        return papers
+    
+    def _generate_sample_authors(self, num_authors: int) -> List[Dict[str, str]]:
+        """
+        Generate sample authors
+        
+        Args:
+            num_authors (int): Number of authors to generate
             
-        except Exception as e:
-            logger.error(f"Error parsing Semantic Scholar paper details: {str(e)}")
-            return None
+        Returns:
+            list: List of author dictionaries
+        """
+        first_names = ["John", "Jane", "Michael", "Emily", "David", "Sarah", "Robert", "Lisa", "Wei", 
+                      "Ying", "Raj", "Priya", "Carlos", "Maria", "Hiroshi", "Yuki"]
+        last_names = ["Smith", "Johnson", "Chen", "Wang", "Patel", "Singh", "Garcia", "Rodriguez", 
+                     "Tanaka", "Suzuki", "Kim", "Park", "Nguyen", "Tran", "Mueller", "Schmidt"]
+        affiliations = ["Stanford University", "MIT", "UC Berkeley", "Harvard University", 
+                       "Google Research", "Microsoft Research", "DeepMind", "OpenAI"]
+        
+        authors = []
+        used_names = set()  # To avoid duplicates
+        
+        for i in range(num_authors):
+            # Generate unique name
+            while True:
+                first_name = random.choice(first_names)
+                last_name = random.choice(last_names)
+                full_name = f"{first_name} {last_name}"
+                
+                if full_name not in used_names:
+                    used_names.add(full_name)
+                    break
+            
+            # Generate random affiliation
+            affiliation = random.choice(affiliations)
+            
+            authors.append({
+                'name': full_name,
+                'affiliation': affiliation
+            })
+        
+        return authors
+    
+    def _generate_sample_abstract(self, term: str) -> str:
+        """
+        Generate a sample abstract based on a search term
+        
+        Args:
+            term (str): Search term
+            
+        Returns:
+            str: Generated abstract
+        """
+        # Set of templates for different parts of the abstract
+        intros = [
+            f"In this paper, we address the challenges of {term} using machine learning techniques.",
+            f"We present a novel approach to {term} based on deep neural networks.",
+            f"This work explores the application of artificial intelligence to {term} problems."
+        ]
+        
+        methods = [
+            f"Our methodology combines TensorFlow with specialized {term} processing algorithms.",
+            f"We develop a hybrid architecture that integrates multiple neural networks for {term} analysis.",
+            f"The proposed framework applies transfer learning to improve {term} performance metrics."
+        ]
+        
+        experiments = [
+            f"We evaluate our approach on benchmark {term} datasets and compare with state-of-the-art methods.",
+            f"Experimental results demonstrate significant improvements in {term} accuracy and efficiency.",
+            f"Our system outperforms existing {term} solutions across multiple evaluation metrics."
+        ]
+        
+        conclusions = [
+            f"This research contributes to the growing field of AI-powered {term} systems.",
+            f"Our findings have important implications for future {term} research and applications.",
+            f"We conclude that deep learning offers promising solutions for {term} challenges."
+        ]
+        
+        # Randomly select one sentence from each category
+        abstract = " ".join([
+            random.choice(intros),
+            random.choice(methods),
+            random.choice(experiments),
+            random.choice(conclusions)
+        ])
+        
+        return abstract
+    
+    def _parse_semantic_scholar_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Parse Semantic Scholar results into standardized format
+        
+        Args:
+            results (list): List of result objects from Semantic Scholar API
+            
+        Returns:
+            list: List of standardized paper dictionaries
+        """
+        # This is a stub implementation
+        # In a real implementation, this would parse actual Semantic Scholar API results
+        papers = []
+        
+        for result in results:
+            paper = {
+                'title': result.get('title', ''),
+                'authors': [{'name': a.get('name', ''), 'affiliation': a.get('affiliations', [''])[0]} 
+                           for a in result.get('authors', [])],
+                'abstract': result.get('abstract', ''),
+                'url': result.get('url', ''),
+                'pdf_url': result.get('pdfUrl', ''),
+                'published_date': result.get('year', ''),
+                'source': 'semantic_scholar',
+                'external_id': result.get('paperId', '')
+            }
+            
+            papers.append(paper)
+        
+        return papers

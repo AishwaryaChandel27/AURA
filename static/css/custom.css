@@ -1,124 +1,193 @@
-/* 
-  AURA Research Assistant Custom CSS
-  Built on top of the Replit Bootstrap Dark Theme 
-*/
+/* Custom styles for AURA Research Assistant */
 
-/* Shared Styles */
-.loading-spinner {
-  width: 3rem;
-  height: 3rem;
-  margin: 0 auto;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  border-top: 4px solid var(--bs-info);
-  animation: spin 1s linear infinite;
+/* Dark mode theme */
+:root {
+    --header-bg: #1a1d21;
+    --aura-primary: #5bc0de;
+    --aura-primary-dark: #2c91af;
+    --aura-secondary: #375a7f;
+    --aura-accent: #8c44ff;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Header styles */
+.site-header {
+    background-color: var(--header-bg);
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.project-card, .paper-card, .hypothesis-card {
-  transition: transform 0.2s, box-shadow 0.2s;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.site-header .navbar-brand {
+    font-weight: bold;
+    color: var(--aura-primary);
+    font-size: 1.5rem;
 }
 
-.project-card:hover, .paper-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+/* Main content area */
+.main-content {
+    padding: 2rem 0;
+    min-height: calc(100vh - 200px);
 }
 
-/* Chat Styles */
+/* Card customization */
+.card {
+    border: none;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 1.5rem;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+.card-header {
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Chat container */
 .chat-container {
-  max-height: 400px;
-  overflow-y: auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 0.5rem;
+    height: 400px;
+    overflow-y: auto;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    background-color: #2c2c2c;
+    border: 1px solid #444;
 }
 
 .chat-message {
-  max-width: 80%;
-  padding: 0.75rem 1rem;
-  border-radius: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    max-width: 80%;
 }
 
 .chat-message.user {
-  align-self: flex-end;
-  background-color: var(--bs-info);
-  color: #fff;
-  border-bottom-right-radius: 0.25rem;
+    background-color: #375a7f;
+    margin-left: auto;
+    border-bottom-right-radius: 0;
 }
 
 .chat-message.agent {
-  align-self: flex-start;
-  background-color: var(--bs-dark);
-  border: 1px solid var(--bs-info);
-  border-bottom-left-radius: 0.25rem;
+    background-color: #2c2c2c;
+    border: 1px solid #444;
+    margin-right: auto;
+    border-bottom-left-radius: 0;
+}
+
+.message-content {
+    margin-bottom: 0.25rem;
 }
 
 .message-meta {
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
+    text-align: right;
+    font-size: 0.75rem;
 }
 
-.agent-type {
-  font-weight: 500;
-  color: var(--bs-info);
+.chat-input-container {
+    margin-top: 1rem;
+}
+
+/* Paper card styles */
+.paper-card {
+    transition: all 0.3s ease;
+}
+
+.paper-card:hover {
+    border-color: var(--aura-primary);
+}
+
+.paper-card .card-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.paper-authors {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.paper-date {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.paper-source-badge {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+}
+
+/* Hypothesis styles */
+.hypothesis-card {
+    background-color: rgba(140, 68, 255, 0.1);
+    border-left: 4px solid var(--aura-accent);
+}
+
+.confidence-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+}
+
+/* TensorFlow specific styling */
+.tensorflow-card {
+    background-color: rgba(255, 162, 43, 0.1);
+    border-left: 4px solid #ffa22b;
 }
 
 /* Visualization container */
 .visualization-container {
-  width: 100%;
-  min-height: 300px;
-  border-radius: 0.5rem;
-  background-color: rgba(0, 0, 0, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    min-height: 300px;
+    background-color: #2c2c2c;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
 }
 
-/* Research illustration animation */
-.research-illustration {
-  display: inline-block;
+/* Cluster visualization */
+.cluster-visualization {
+    min-height: 300px;
 }
 
-.pulse-circle {
-  animation: pulse 2s infinite;
+/* Button styling */
+.btn-tensorflow {
+    background-color: #ffa22b;
+    border-color: #ffa22b;
+    color: #fff;
 }
 
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(2);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0;
-  }
+.btn-tensorflow:hover {
+    background-color: #e8921e;
+    border-color: #e8921e;
+    color: #fff;
 }
 
-/* Accordion customizations */
-.accordion-button:not(.collapsed) {
-  color: var(--bs-info);
-  background-color: rgba(91, 192, 222, 0.15);
+/* Footer styling */
+.site-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2rem 0;
+    margin-top: 3rem;
 }
 
-.accordion-button:focus {
-  box-shadow: 0 0 0 0.25rem rgba(91, 192, 222, 0.25);
+/* Utility classes */
+.bg-darker {
+    background-color: #1a1d21 !important;
 }
 
-/* Media Queries */
-@media (max-width: 767.98px) {
-  .chat-message {
-    max-width: 90%;
-  }
+.text-aura-primary {
+    color: var(--aura-primary) !important;
+}
+
+.very-small {
+    font-size: 0.7rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .chat-message {
+        max-width: 90%;
+    }
 }

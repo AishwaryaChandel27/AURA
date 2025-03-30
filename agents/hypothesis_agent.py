@@ -6,10 +6,9 @@ Agent responsible for generating research hypotheses
 import logging
 from typing import Dict, List, Any, Optional
 
-# Import services
-from services import openai_service
+from services.openai_service import OpenAIService
 
-# Configure logging
+# Set up logging
 logger = logging.getLogger(__name__)
 
 class HypothesisAgent:
@@ -19,8 +18,7 @@ class HypothesisAgent:
     
     def __init__(self):
         """Initialize the HypothesisAgent"""
-        logger.info("Initializing HypothesisAgent")
-        self.initialized = True
+        self.openai_service = OpenAIService()
     
     def generate_hypothesis(self, research_question: str, papers: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -33,21 +31,46 @@ class HypothesisAgent:
         Returns:
             dict: Generated hypothesis, reasoning, and confidence score
         """
-        logger.info(f"Generating hypothesis for question: {research_question}")
-        
         try:
-            # Use OpenAI service to generate hypothesis
-            hypothesis_result = openai_service.generate_hypothesis(research_question, papers)
+            # Extract paper information
+            paper_info = []
+            for i, paper in enumerate(papers):
+                paper_info.append({
+                    'index': i,
+                    'title': paper.get('title', ''),
+                    'abstract': paper.get('abstract', '')
+                })
             
-            return hypothesis_result
+            # Use the OpenAI service to generate a hypothesis
+            hypothesis_data = self.openai_service.generate_hypothesis(research_question, paper_info)
+            
+            # Create supporting evidence
+            supporting_evidence = {}
+            if 'supporting_papers' in hypothesis_data:
+                supporting_papers = hypothesis_data['supporting_papers']
+                for paper_id, evidence in supporting_papers.items():
+                    if isinstance(paper_id, str) and paper_id.isdigit():
+                        paper_idx = int(paper_id)
+                        if 0 <= paper_idx < len(papers):
+                            supporting_evidence[paper_id] = {
+                                'title': papers[paper_idx].get('title', ''),
+                                'evidence': evidence
+                            }
+            
+            return {
+                'hypothesis': hypothesis_data.get('hypothesis', ''),
+                'reasoning': hypothesis_data.get('reasoning', ''),
+                'confidence_score': hypothesis_data.get('confidence_score', 0.0),
+                'supporting_evidence': supporting_evidence
+            }
+        
         except Exception as e:
             logger.error(f"Error generating hypothesis: {e}")
             return {
-                "hypothesis_text": f"Error generating hypothesis for '{research_question}'.",
-                "reasoning": "An error occurred during hypothesis generation.",
-                "confidence_score": 0.0,
-                "supporting_evidence": {},
-                "tensorflow_approach": "N/A"
+                'hypothesis': f"Error generating hypothesis: {str(e)}",
+                'reasoning': 'An error occurred during hypothesis generation.',
+                'confidence_score': 0.0,
+                'supporting_evidence': {}
             }
     
     def evaluate_hypothesis(self, hypothesis: Dict[str, Any], papers: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -61,44 +84,34 @@ class HypothesisAgent:
         Returns:
             dict: Evaluation results
         """
-        logger.info(f"Evaluating hypothesis: {hypothesis.get('hypothesis_text', 'Unknown hypothesis')}")
-        
         try:
-            # For a real implementation, this would do a more sophisticated analysis
-            # For this demo, we'll just return a simple score
+            # Extract paper information
+            paper_info = []
+            for i, paper in enumerate(papers):
+                paper_info.append({
+                    'index': i,
+                    'title': paper.get('title', ''),
+                    'abstract': paper.get('abstract', '')
+                })
             
-            # Count papers that might be relevant
-            hypothesis_text = hypothesis.get('hypothesis_text', '').lower()
-            relevant_papers = 0
+            # Create evaluation prompt
+            hypothesis_text = hypothesis.get('hypothesis', '')
             
-            for paper in papers:
-                paper_title = paper.get('title', '').lower()
-                paper_abstract = paper.get('abstract', '').lower()
-                
-                # Check if hypothesis terms appear in title or abstract
-                if any(term in paper_title or term in paper_abstract 
-                       for term in hypothesis_text.split(' ') 
-                       if len(term) > 5):  # Only consider longer terms
-                    relevant_papers += 1
-            
-            # Calculate score
-            relevance_score = min(1.0, relevant_papers / max(1, len(papers)))
+            # Use the OpenAI service to evaluate the hypothesis
+            evaluation = self.openai_service.evaluate_hypothesis(hypothesis_text, paper_info)
             
             return {
-                'relevance_score': relevance_score,
-                'relevant_papers': relevant_papers,
-                'total_papers': len(papers),
-                'evaluation': 'This hypothesis appears to be ' + 
-                             ('well-supported' if relevance_score > 0.7 else 
-                              'moderately supported' if relevance_score > 0.3 else 
-                              'weakly supported') + 
-                             ' by the available papers.'
+                'strength': evaluation.get('strength', 0.0),
+                'weaknesses': evaluation.get('weaknesses', []),
+                'alternative_hypotheses': evaluation.get('alternative_hypotheses', []),
+                'suggestions': evaluation.get('suggestions', [])
             }
+        
         except Exception as e:
             logger.error(f"Error evaluating hypothesis: {e}")
             return {
-                'relevance_score': 0.0,
-                'relevant_papers': 0,
-                'total_papers': len(papers),
-                'evaluation': 'Error evaluating hypothesis.'
+                'strength': 0.0,
+                'weaknesses': [f"Error during evaluation: {str(e)}"],
+                'alternative_hypotheses': [],
+                'suggestions': ['Review the hypothesis and try again.']
             }
