@@ -36,7 +36,7 @@ class ResearchQuery(db.Model):
     papers = db.relationship('Paper', backref='query', lazy=True)
     
     def __repr__(self):
-        return f"<ResearchQuery {self.id}: {self.query_text[:50]}>"
+        return f"<ResearchQuery {self.id}: {self.query_text[:50]}...>"
 
 class Paper(db.Model):
     """Research paper model"""
@@ -51,8 +51,8 @@ class Paper(db.Model):
     external_id = db.Column(db.String(100))  # ID from the source
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Additional data
-    metadata = db.Column(db.Text)  # Stores additional metadata as JSON
+    # Additional metadata
+    paper_metadata = db.Column(db.Text)  # Stores additional metadata as JSON
     
     # Foreign keys
     project_id = db.Column(db.Integer, db.ForeignKey('research_project.id'), nullable=False)
@@ -63,12 +63,12 @@ class Paper(db.Model):
     
     def set_metadata(self, metadata_dict):
         """Set metadata as JSON"""
-        self.metadata = json.dumps(metadata_dict)
+        self.paper_metadata = json.dumps(metadata_dict)
     
     def get_metadata(self):
         """Get metadata as Python dictionary"""
-        if self.metadata:
-            return json.loads(self.metadata)
+        if self.paper_metadata:
+            return json.loads(self.paper_metadata)
         return {}
     
     def set_authors(self, authors_list):
@@ -133,7 +133,7 @@ class Hypothesis(db.Model):
         return {}
     
     def __repr__(self):
-        return f"<Hypothesis {self.id}: {self.hypothesis_text[:50]}>"
+        return f"<Hypothesis {self.id}: {self.hypothesis_text[:50]}...>"
 
 class ExperimentDesign(db.Model):
     """Experiment design model"""
@@ -174,4 +174,4 @@ class ChatMessage(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('research_project.id'), nullable=False)
     
     def __repr__(self):
-        return f"<ChatMessage {self.id} ({self.role}): {self.content[:50]}>"
+        return f"<ChatMessage {self.id}: {self.role}>"

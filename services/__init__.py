@@ -1,1 +1,3 @@
-# This file enables the services package
+"""
+Services package for AURA Research Assistant
+"""

@@ -1,1 +1,3 @@
-# This file enables the agents package
+"""
+Agents package for AURA Research Assistant
+"""

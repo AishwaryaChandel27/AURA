@@ -1,1 +1,3 @@
-# This file enables the routes package
+"""
+Routes package for AURA Research Assistant
+"""
