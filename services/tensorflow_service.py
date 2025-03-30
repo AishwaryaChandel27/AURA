@@ -6,15 +6,25 @@ Handles machine learning and data analysis operations using TensorFlow
 import logging
 import json
 from typing import Dict, List, Any, Optional, Tuple
-import tensorflow as tf
-import numpy as np
-from datetime import datetime
 import os
-from sklearn.cluster import KMeans
 import random
+from datetime import datetime
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Silence TensorFlow warnings and info logs
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 0=all, 1=info, 2=warning, 3=error
+
+# Import TensorFlow and related libraries with reduced warnings
+try:
+    import tensorflow as tf
+    import numpy as np
+    from sklearn.cluster import KMeans
+except ImportError:
+    logger.warning("TensorFlow, NumPy, or scikit-learn not available. Using fallback functionality.")
+    tf = None
+    np = None
 
 class TensorFlowService:
     """
@@ -26,25 +36,35 @@ class TensorFlowService:
         """Initialize TensorFlowService"""
         logger.info("Initializing TensorFlowService")
         
-        # Print TensorFlow version for debugging
-        logger.info(f"TensorFlow version: {tf.__version__}")
+        # Initialize basic properties
+        self.model_cache = {}
+        self.gpu_available = False
         
-        # Initialize TensorFlow components
-        self._initialize_tf_components()
+        # Initialize TensorFlow components if available
+        if tf is not None:
+            try:
+                # Print TensorFlow version for debugging
+                logger.info(f"TensorFlow version: {tf.__version__}")
+                
+                # Initialize TensorFlow components
+                self._initialize_tf_components()
+            except Exception as e:
+                logger.warning(f"TensorFlow initialization warning: {e}")
+        else:
+            logger.warning("TensorFlow not available, using fallback functionality")
     
     def _initialize_tf_components(self):
         """Initialize TensorFlow components"""
         try:
-            # Check for GPU availability
-            self.gpu_available = len(tf.config.list_physical_devices('GPU')) > 0
+            # Check for GPU availability (with reduced verbosity)
+            self.gpu_available = False
+            if hasattr(tf, 'config') and hasattr(tf.config, 'list_physical_devices'):
+                self.gpu_available = len(tf.config.list_physical_devices('GPU')) > 0
+            
             logger.info(f"GPU available: {self.gpu_available}")
-            
-            # Initialize model cache
-            self.model_cache = {}
-            
             logger.info("TensorFlow components initialized successfully")
         except Exception as e:
-            logger.error(f"Error initializing TensorFlow components: {e}")
+            logger.warning(f"Error initializing TensorFlow components: {e}")
     
     def analyze_papers(self, papers: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -236,10 +256,17 @@ class TensorFlowService:
             embedding_dim = 128
             embeddings = []
             
-            for _ in texts:
-                # Generate random embedding vector
-                embedding = np.random.normal(0, 1, embedding_dim).tolist()
-                embeddings.append(embedding)
+            # Generate random embeddings using Python's random instead of NumPy if NumPy is not available
+            if np is not None:
+                for _ in texts:
+                    # Generate random embedding vector using NumPy
+                    embedding = np.random.normal(0, 1, embedding_dim).tolist()
+                    embeddings.append(embedding)
+            else:
+                # Fallback to Python's random if NumPy is not available
+                for _ in texts:
+                    embedding = [random.normalvariate(0, 1) for _ in range(embedding_dim)]
+                    embeddings.append(embedding)
             
             return embeddings
         
