@@ -34,9 +34,22 @@ def create_app():
     if not os.path.exists('instance'):
         os.makedirs('instance')
     
-    # Configure the SQLite database with absolute path
-    db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'aura.db')
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+    # Configure the database
+    # Use DATABASE_URL environment variable if available (for Render), otherwise use SQLite
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+    
+    # If DATABASE_URL is not set, use local SQLite database
+    if not app.config["SQLALCHEMY_DATABASE_URI"]:
+        db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'aura.db')
+        app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+        logger.info(f"Using SQLite database at {db_path}")
+    else:
+        logger.info("Using external database from DATABASE_URL")
+        
+    # If DATABASE_URL starts with postgres://, convert to postgresql:// for SQLAlchemy 1.4+
+    if app.config["SQLALCHEMY_DATABASE_URI"] and app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
+        app.config["SQLALCHEMY_DATABASE_URI"] = app.config["SQLALCHEMY_DATABASE_URI"].replace("postgres://", "postgresql://", 1)
+        
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_recycle": 300,

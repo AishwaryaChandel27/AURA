@@ -133,6 +133,31 @@ AURA harnesses TensorFlow for various research tasks:
 - API keys should be kept secure and not committed to version control
 - User authentication is not implemented in the current version
 
+## 🌐 Deployment
+
+### Render Deployment
+
+AURA is configured for easy deployment on Render.com:
+
+1. Fork or clone this repository to your GitHub account
+2. Create a new Web Service on Render
+3. Connect your GitHub repository
+4. Configure the service:
+   - **Name**: Choose a name for your deployment
+   - **Environment**: Python 3
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn --bind 0.0.0.0:$PORT --reuse-port main:app`
+5. Set environment variables:
+   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `SESSION_SECRET`: Random string for session security
+   - `DATABASE_URL` (optional): If using a hosted database
+
+The application will be automatically deployed and available at your Render URL.
+
+### Other Hosting Options
+
+For detailed information on other deployment options, see the [INSTALLATION.md](INSTALLATION.md) file.
+
 ## 🤝 Contributing
 
 Contributions to AURA are welcome! Please feel free to submit a Pull Request.
