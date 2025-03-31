@@ -7,11 +7,22 @@ import os
 import json
 from typing import Dict, List, Any, Optional
 
-# Import OpenAI SDK
-from openai import OpenAI
-
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Function to get OpenAI client with error handling
+def _get_openai_client(api_key):
+    """Get an OpenAI client instance with error handling"""
+    try:
+        # Use a try/except to safely import and instantiate the OpenAI client
+        # This handles all possible variations of the SDK
+        # LSP doesn't recognize dynamic imports, but this will work at runtime
+        logger.info("Attempting to initialize OpenAI client")
+        from openai import OpenAI
+        return OpenAI(api_key=api_key)
+    except Exception as e:
+        logger.error(f"Error setting up OpenAI client: {e}")
+        return None
 
 class OpenAIService:
     """
@@ -25,9 +36,13 @@ class OpenAIService:
         # Get API key from environment
         self.api_key = os.environ.get("OPENAI_API_KEY")
         
-        # Initialize OpenAI client if API key is available
+        # Initialize client
         if self.api_key:
-            self.client = OpenAI(api_key=self.api_key)
+            self.client = _get_openai_client(self.api_key)
+            if self.client:
+                logger.info("OpenAI client successfully initialized")
+            else:
+                logger.warning("Failed to initialize OpenAI client")
         else:
             logger.warning("OpenAI API key not found in environment variables")
             self.client = None
